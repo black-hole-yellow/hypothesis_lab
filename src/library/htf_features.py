@@ -168,11 +168,11 @@ def find_major_sr(weekly_df: pd.DataFrame, daily_df: pd.DataFrame, tolerance_pip
             
     return major_sr
 
-def filter_clustered_swings(swing_prices: list, history_df: pd.DataFrame, tolerance_pips: float = 15.0) -> list:
+def filter_clustered_swings(swing_prices: list, daily_df: pd.DataFrame, tolerance_pips: float = 15.0) -> list:
     """
     Groups swings that are close to each other. 
-    If multiple swings are in the same cluster, it counts historical touches 
-    and only keeps the one with the highest touch count.
+    Uses 1D (Daily) candles to count historical touches, and keeps 
+    only the swing with the highest Daily touch count in that cluster.
     """
     if not swing_prices:
         return []
@@ -185,7 +185,6 @@ def filter_clustered_swings(swing_prices: list, history_df: pd.DataFrame, tolera
     current_cluster = [sorted_swings[0]]
     
     for price in sorted_swings[1:]:
-        # If the price is within the tolerance of the cluster's average, add it
         if abs(price - np.mean(current_cluster)) <= tolerance:
             current_cluster.append(price)
         else:
@@ -193,23 +192,22 @@ def filter_clustered_swings(swing_prices: list, history_df: pd.DataFrame, tolera
             current_cluster = [price]
     clusters.append(current_cluster)
     
-    # 2. Filter clusters based on touch count
+    # 2. Filter clusters based on 1D touch count
     filtered_swings = []
     for cluster in clusters:
         if len(cluster) == 1:
-            # Only one swing in this zone, keep it
             filtered_swings.append(cluster[0])
         else:
-            # Multiple swings in this zone. Find the one with the most touches.
             best_swing = cluster[0]
             max_touches = -1
             
             for swing in cluster:
-                # A "touch" means the weekly candle's wick passed through the tolerance zone
-                touches = len(history_df[(history_df['Low'] <= swing + tolerance) & 
-                                         (history_df['High'] >= swing - tolerance)])
+                # Count touches using DAILY candles
+                touches = len(daily_df[
+                    (daily_df['Low'] <= swing + tolerance) & 
+                    (daily_df['High'] >= swing - tolerance)
+                ])
                 
-                # If tied, this keeps the first one it checked (usually the lower price)
                 if touches > max_touches:
                     max_touches = touches
                     best_swing = swing
@@ -218,14 +216,15 @@ def filter_clustered_swings(swing_prices: list, history_df: pd.DataFrame, tolera
             
     return filtered_swings
 
-def get_confirmed_swings(weekly_df: pd.DataFrame, current_date: pd.Timestamp, n: int = 2, lookback_years: int = 2) -> dict:
+def get_confirmed_swings(weekly_df: pd.DataFrame, daily_df: pd.DataFrame, current_date: pd.Timestamp, n: int = 1, lookback_years: int = 5, tolerance_pips: float = 15.0) -> dict:
     """
     Extracts 100% confirmed Weekly Swings (5-year rolling lookback) and filters 
-    out redundant clustered swings based on historical touches.
+    out redundant clustered swings based on 1D historical touches.
     """
     cutoff_date = current_date - pd.DateOffset(years=lookback_years)
-    history_df = weekly_df.loc[:current_date].copy()
     
+    # 1. Slice Weekly Data for swings
+    history_df = weekly_df.loc[:current_date].copy()
     if history_df.empty:
         return {'Highs': [], 'Lows': []}
 
@@ -235,13 +234,15 @@ def get_confirmed_swings(weekly_df: pd.DataFrame, current_date: pd.Timestamp, n:
     history_df['Swing_Low_Price'] = history_df['Low'].shift(n)
     
     valid_history = history_df[history_df.index >= cutoff_date]
-    
     raw_highs = valid_history[valid_history['Confirmed_High_Signal'] == True]['Swing_High_Price'].tolist()
     raw_lows = valid_history[valid_history['Confirmed_Low_Signal'] == True]['Swing_Low_Price'].tolist()
     
-    # Apply the Clustered Touch Filter (Using 15 pips default, adjust if needed)
-    final_highs = filter_clustered_swings(raw_highs, valid_history, tolerance_pips=15.0)
-    final_lows = filter_clustered_swings(raw_lows, valid_history, tolerance_pips=15.0)
+    # 2. Slice Daily Data for touch validation
+    valid_daily = daily_df[(daily_df.index >= cutoff_date) & (daily_df.index <= current_date)]
+    
+    # 3. Apply the Clustered Touch Filter using the Daily Data
+    final_highs = filter_clustered_swings(raw_highs, valid_daily, tolerance_pips=tolerance_pips)
+    final_lows = filter_clustered_swings(raw_lows, valid_daily, tolerance_pips=tolerance_pips)
     
     return {
         'Highs': final_highs,

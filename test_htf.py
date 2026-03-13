@@ -34,23 +34,25 @@ def run_comprehensive_test():
     print("\n--- 3. Testing Confirmed 5-Year Swings ---")
     # Resample to weekly for fractal calc
     # Prepare different timeframes
+    # Inside your test script...
     daily_df = df.resample('1D').agg({'High': 'max', 'Low': 'min', 'Close': 'last'}).dropna()
     weekly_df = df.resample('W-SUN').agg({'High': 'max', 'Low': 'min', 'Close': 'last'}).dropna()
     
-    # 1. Weekly Swings (Using N=1 for sensitivity)
     n_swings = 3 
     weekly_df = add_williams_fractals(weekly_df, timeframe='1W', n=n_swings)
-    swings = get_confirmed_swings(weekly_df, current_date=df.index[-1], n=n_swings, lookback_years=5)
+    
+    # Pass BOTH weekly_df and daily_df
+    swings = get_confirmed_swings(
+        weekly_df, 
+        daily_df, 
+        current_date=df.index[-1], 
+        n=n_swings, 
+        lookback_years=5,
+        tolerance_pips=50.0  
+    )
     
     print(f"--- Confirmed Highs (n={n_swings}): {len(swings['Highs'])} ---")
-
-    # 2. S&R Zones (Validated by 1D Touches)
-    # We can use a different 'n' here if we want, but usually, we use the weekly_df prepared above
-    major_sr = find_major_sr(weekly_df, daily_df, tolerance_pips=10.0, min_touches=10)
-    
-    print(f"--- Major S&R Zones (Daily Touches): {len(major_sr)} ---")
-    for i, lvl in enumerate(major_sr[:5]):
-        print(f"Zone {i+1}: {lvl:.5f}")
-
+    for lvl in swings['Highs']:
+        print(f"High: {lvl:.5f}")
 if __name__ == "__main__":
     run_comprehensive_test()
