@@ -7,7 +7,7 @@ def add_williams_fractals(df: pd.DataFrame, timeframe: str, n: int = 2) -> pd.Da
     Calculates N-period Williams Fractals.
     Gated strictly to 1h and 4h timeframes.
     """
-    if timeframe not in ['1h', '4h']:
+    if timeframe not in ['1h', '4h', '1D', '1W']:
         df['Fractal_High'] = False
         df['Fractal_Low'] = False
         return df

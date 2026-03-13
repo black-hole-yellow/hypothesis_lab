@@ -58,30 +58,3 @@ def add_session_tags(df: pd.DataFrame) -> pd.DataFrame:
     df['Session'] = np.select(conditions, choices, default='None')
     
     return df
-
-
-# ==========================================
-# TEST FUNCTION
-# ==========================================
-if __name__ == "__main__":
-    # Point this to your actual file
-    file_path = "data/gbpusd_data.csv" 
-    start = '2026-02-10'
-    end = '2026-02-27'
-    tf = '1h'
-    
-    print(f"Loading data from {start} to {end} at {tf} timeframe...")
-    
-    # 1. Load and Prep
-    df = load_and_prep_data(file_path, start, end, tf)
-    
-    # 2. Tag Sessions
-    df = add_session_tags(df)
-    
-    # 3. Print the top 20 rows so you can see the session transitions
-    print("\n--- Output Verification (First 20 Rows) ---")
-    print(df[['Close', 'Session']].head(20).to_string())
-    
-    # Optional: Save to CSV if you want to inspect the whole month in Excel
-    # df.to_csv("test_output_sessions.csv")
-    # print("\nSaved full output to test_output_sessions.csv")

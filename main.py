@@ -4,6 +4,7 @@ import pandas as pd
 # Import our custom Lab modules
 from src.utils.data_loader import load_and_prep_data, add_session_tags
 from src.library.features import add_williams_fractals, add_volatility_zscore, add_normalized_slope
+from src.library.htf_features import add_previous_boundaries, calculate_fvgs  # <--- NEW IMPORTS
 from src.hypotheses.london_fake_move import LondonFakeMove
 from src.core.base_hypothesis import State
 
@@ -24,11 +25,20 @@ def run_lab():
 
     # 2. Data Pipeline
     try:
+        # Load Base Data
         df = load_and_prep_data(data_file, start_date, end_date, timeframe)
+        
+        # Apply Intrinsic Features (DNA)
         df = add_session_tags(df)
         df = add_williams_fractals(df, timeframe=timeframe, n=2)
         df = add_volatility_zscore(df, lookback=50)
         df = add_normalized_slope(df, lookback=20, atr_lookback=14)
+        
+        # Apply HTF / Environmental Features (Weather) <--- NEW PIPELINE STEP
+        print("Calculating HTF Boundaries and FVGs...")
+        df = add_previous_boundaries(df)
+        df = calculate_fvgs(df)
+        
     except Exception as e:
         print(f"Data Pipeline Error: {e}")
         return
@@ -52,13 +62,12 @@ def run_lab():
     if results_database:
         results_df = pd.DataFrame(results_database)
         
-        # --- NEW: Convert NY Time to Ukraine Time for the CSV ---
+        # Convert NY Time to Ukraine Time for the CSV
         results_df['Trigger_Time'] = pd.to_datetime(results_df['Trigger_Time'])
         results_df['Trigger_Time'] = (results_df['Trigger_Time']
                                       .dt.tz_localize('US/Eastern')
                                       .dt.tz_convert('Europe/Kyiv')
-                                      .dt.tz_localize(None)) # Removes timezone tag for clean CSV format
-        # --------------------------------------------------------
+                                      .dt.tz_localize(None))
 
         results_df.to_csv(output_file, index=False)
         print(f"\nSUCCESS: Logged {len(results_df)} events.")
