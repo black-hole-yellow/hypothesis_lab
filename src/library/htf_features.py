@@ -23,7 +23,7 @@ def add_previous_boundaries(df: pd.DataFrame) -> pd.DataFrame:
     # 2. WEEKLY BOUNDARIES
     # We use 'isocalendar' weeks to ensure Monday-Sunday alignment
     df['week_key'] = df.index.isocalendar().week
-    df['year_key'] = df.index.year
+    df['year_key'] = df.index.isocalendar().year
     
     # Calculate weekly extremes
     weekly_stats = df.groupby(['year_key', 'week_key']).agg({'High': 'max', 'Low': 'min'})
