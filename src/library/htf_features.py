@@ -124,35 +124,48 @@ def calculate_multi_tf_fvgs(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-def find_major_sr(weekly_df: pd.DataFrame, tolerance_pips: float = 5.0, min_touches: int = 3) -> list:
+def find_major_sr(weekly_df: pd.DataFrame, daily_df: pd.DataFrame, tolerance_pips: float = 10.0, min_touches: int = 5) -> list:
     """
-    Extracts W1 Fractals, clusters them within the pip tolerance, 
-    and returns levels that have 3 or more total touches.
+    Identifies Major S&R levels.
+    1. Uses Weekly Fractals as 'Candidate' levels.
+    2. Uses Daily (1D) candles to count touches for validation.
     """
     tolerance = tolerance_pips * PIP
     
-    # Get all W1 fractal prices
+    # Get candidate levels from Weekly Fractals
     highs = weekly_df[weekly_df['Fractal_High'] == True]['High'].tolist()
     lows = weekly_df[weekly_df['Fractal_Low'] == True]['Low'].tolist()
-    all_levels = sorted(highs + lows)
+    all_candidates = sorted(highs + lows)
     
-    if not all_levels:
+    if not all_candidates:
         return []
 
-    # Cluster the levels
+    # Cluster candidates that are near each other
     clusters = []
-    current_cluster = [all_levels[0]]
+    if all_candidates:
+        current_cluster = [all_candidates[0]]
+        for level in all_candidates[1:]:
+            if abs(level - np.mean(current_cluster)) <= tolerance:
+                current_cluster.append(level)
+            else:
+                clusters.append(current_cluster)
+                current_cluster = [level]
+        clusters.append(current_cluster)
     
-    for level in all_levels[1:]:
-        if abs(level - np.mean(current_cluster)) <= tolerance:
-            current_cluster.append(level)
-        else:
-            clusters.append(current_cluster)
-            current_cluster = [level]
-    clusters.append(current_cluster)
-    
-    # Filter for Importance (>= 3 touches)
-    major_sr = [np.mean(c) for c in clusters if len(c) >= min_touches]
+    major_sr = []
+    for cluster in clusters:
+        mean_level = np.mean(cluster)
+        
+        # Count how many DAILY candles touched this level
+        # A touch is defined as the Daily High >= Level - Tol AND Daily Low <= Level + Tol
+        touches = len(daily_df[
+            (daily_df['High'] >= mean_level - tolerance) & 
+            (daily_df['Low'] <= mean_level + tolerance)
+        ])
+        
+        if touches >= min_touches:
+            major_sr.append(mean_level)
+            
     return major_sr
 
 def filter_clustered_swings(swing_prices: list, history_df: pd.DataFrame, tolerance_pips: float = 15.0) -> list:

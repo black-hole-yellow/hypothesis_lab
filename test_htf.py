@@ -1,39 +1,56 @@
 import pandas as pd
 from src.utils.data_loader import load_and_prep_data
-from src.library.htf_features import add_previous_boundaries
+from src.library.htf_features import (
+    add_previous_boundaries, 
+    calculate_multi_tf_fvgs, 
+    get_confirmed_swings, 
+    find_major_sr
+)
+from src.library.features import add_williams_fractals
 
-def run_clean_boundaries_test():
+def run_comprehensive_test():
     file_path = "data/gbpusd_data.csv"
     
-    start_date = '2026-02-01'
-    end_date = '2026-02-27'
-    tf = '1h'
+    # Load enough history for Weekly math to work
+    df = load_and_prep_data(file_path, '2024-01-01', '2026-03-10', '1h')
     
-    df = load_and_prep_data(file_path, start_date, end_date, tf)
-    
-    # 1. TIMEZONE FIX: Convert to Ukraine time BEFORE calculating boundaries
+    # --- 1. Fix Timezone First ---
     if df.index.tz is None:
         df.index = df.index.tz_localize('US/Eastern').tz_convert('Europe/Kyiv')
-    else:
-        df.index = df.index.tz_convert('Europe/Kyiv')
-
-    # 2. Calculate boundaries (Now based on Kyiv Midnight to Midnight)
-    df = add_previous_boundaries(df)
     
-    df['Date'] = df.index.date
+    print("--- 1. Testing Boundaries (Ukraine Session) ---")
+    df = add_previous_boundaries(df)
+    # Check the very last day in the data
+    last_date = df.index[-1].date()
+    daily = df[df.index.date == last_date].iloc[0]
+    print(f"Date: {last_date} | PDH: {daily['PDH']:.5f} | PDL: {daily['PDL']:.5f} | PWH: {daily['PWH']:.5f}")
 
-    # 3. Print Daily Boundaries
-    print("\n--- PDH & PDL (Ukraine Timezone Date) ---")
-    daily_summary = df.groupby('Date').first().dropna(subset=['PDH', 'PDL'])
-    for date_obj, row in daily_summary.tail(10).iterrows():
-        print(f"{date_obj} {row['PDH']:.5f} {row['PDL']:.5f}")
+    print("\n--- 2. Testing Multi-TF FVGs ---")
+    df = calculate_multi_tf_fvgs(df)
+    # Print the most recent active gaps
+    fvg_cols = [c for c in df.columns if 'FVG' in c and 'Type' in c]
+    print(df[fvg_cols].tail(1).T.to_string(header=False))
 
-    # 4. Print Weekly Boundaries
-    print("\n--- PWH & PWL (Ukraine Timezone Date) ---")
-    weekly_summary = df.groupby(['PWH', 'PWL']).first().reset_index().sort_values('Date')
-    for _, row in weekly_summary.tail(5).iterrows():
-        print(f"{row['Date']} {row['PWH']:.5f} {row['PWL']:.5f}")
-    print("\n")
+    print("\n--- 3. Testing Confirmed 5-Year Swings ---")
+    # Resample to weekly for fractal calc
+    # Prepare different timeframes
+    daily_df = df.resample('1D').agg({'High': 'max', 'Low': 'min', 'Close': 'last'}).dropna()
+    weekly_df = df.resample('W-SUN').agg({'High': 'max', 'Low': 'min', 'Close': 'last'}).dropna()
+    
+    # 1. Weekly Swings (Using N=1 for sensitivity)
+    n_swings = 3 
+    weekly_df = add_williams_fractals(weekly_df, timeframe='1W', n=n_swings)
+    swings = get_confirmed_swings(weekly_df, current_date=df.index[-1], n=n_swings, lookback_years=5)
+    
+    print(f"--- Confirmed Highs (n={n_swings}): {len(swings['Highs'])} ---")
+
+    # 2. S&R Zones (Validated by 1D Touches)
+    # We can use a different 'n' here if we want, but usually, we use the weekly_df prepared above
+    major_sr = find_major_sr(weekly_df, daily_df, tolerance_pips=10.0, min_touches=10)
+    
+    print(f"--- Major S&R Zones (Daily Touches): {len(major_sr)} ---")
+    for i, lvl in enumerate(major_sr[:5]):
+        print(f"Zone {i+1}: {lvl:.5f}")
 
 if __name__ == "__main__":
-    run_clean_boundaries_test()
+    run_comprehensive_test()
