@@ -38,41 +38,35 @@ class LondonFakeMove(BaseHypothesis):
 
     def check_trigger(self, index: pd.Timestamp, row: pd.Series):
         """
-        Phase 1 & Phase 2: Observes Asia to build the structural levels. 
-        Watches London for the Sweep and the Body Close Confirmation.
+        Phase 1-3: Builds Asia, watches London for sweep, and confirms 
+        the fake move in London or New York.
         """
-        # Update rolling fractals
+        # DNA: Update rolling fractals
         if row.get('Fractal_High'):
             self.last_fractal_high = row['High']
         if row.get('Fractal_Low'):
             self.last_fractal_low = row['Low']
 
-        # Detect Session Transition
+        # Session Transition Logic
         if row['Session'] != self.current_session:
             if row['Session'] == 'Asia':
                 self._reset_daily_trackers()
-                # If a previous hypothesis is still pending from yesterday, reset the base state
                 if self.state == State.PENDING:
                     self.reset()
             self.current_session = row['Session']
 
-        # PHASE 1: Build Asia Levels
+        # PHASE 1: Build Asia Levels (Static structural anchors)
         if self.current_session == 'Asia':
             if row['High'] > self.asia_high:
                 self.asia_high = row['High']
-                self.origin_for_high = self.last_fractal_low # The red line in your diagram
+                self.origin_for_high = self.last_fractal_low # May be None if no fractal yet
             
             if row['Low'] < self.asia_low:
                 self.asia_low = row['Low']
                 self.origin_for_low = self.last_fractal_high
 
-        # PHASE 2 & 3: London Sweep & Confirmation
+        # PHASE 2: London Sweep (Strictly during London session)
         elif self.current_session == 'London':
-            # Ensure we actually have valid Asia levels to sweep
-            if self.asia_high == -np.inf or self.origin_for_high is None:
-                return
-
-            # Check for the initial sweep
             if self.swept_side is None:
                 if row['High'] > self.asia_high:
                     self.swept_side = 'HIGH'
@@ -80,17 +74,34 @@ class LondonFakeMove(BaseHypothesis):
                 elif row['Low'] < self.asia_low:
                     self.swept_side = 'LOW'
                     self.sweep_extreme = row['Low']
+            else:
+                # Update sweep extreme for invalidation tracking
+                if self.swept_side == 'HIGH':
+                    self.sweep_extreme = max(self.sweep_extreme, row['High'])
+                else:
+                    self.sweep_extreme = min(self.sweep_extreme, row['Low'])
 
-            # Check for Fake Move Confirmation (Body Close)
-            if self.swept_side == 'HIGH':
-                self.sweep_extreme = max(self.sweep_extreme, row['High'])
+        # PHASE 3: Confirmation (London or New York)
+        # Check that we have a sweep AND that the origin levels aren't None (FIX)
+        if self.swept_side is not None and self.current_session in ['London', 'New York']:
+            
+            # 1. NY Invalidation Guard
+            if self.current_session == 'New York':
+                if self.swept_side == 'HIGH' and row['High'] > self.sweep_extreme:
+                    self._reset_daily_trackers() # Trend continued, not a fake move
+                    return
+                elif self.swept_side == 'LOW' and row['Low'] < self.sweep_extreme:
+                    self._reset_daily_trackers()
+                    return
+
+            # 2. Safety Check & Confirmation
+            if self.swept_side == 'HIGH' and self.origin_for_high is not None:
                 if row['Close'] < self.origin_for_high:
-                    self.mark_triggered(index, row) # Fake move confirmed!
+                    self.mark_triggered(index, row)
                     
-            elif self.swept_side == 'LOW':
-                self.sweep_extreme = min(self.sweep_extreme, row['Low'])
+            elif self.swept_side == 'LOW' and self.origin_for_low is not None:
                 if row['Close'] > self.origin_for_low:
-                    self.mark_triggered(index, row) # Fake move confirmed!
+                    self.mark_triggered(index, row)
 
     def update_state(self, index: pd.Timestamp, row: pd.Series):
         """

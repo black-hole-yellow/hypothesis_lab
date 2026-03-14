@@ -16,7 +16,7 @@ def run_lab():
     
     start_date = '2025-01-01' # Adjust to your desired testing range
     end_date = '2026-02-27'
-    timeframe = '1h'
+    timeframe = '1h' 
     
     os.makedirs(output_dir, exist_ok=True)
 

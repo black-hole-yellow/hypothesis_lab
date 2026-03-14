@@ -1,0 +1,15 @@
+{
+    "US_CPI_SHOCK_MAY_25": {
+        "category": "Macro_Data",
+        "start_date": "2025-05-14 08:30:00",
+        "end_date": "2025-05-14 12:00:00",
+        "description": "US CPI came in significantly hotter than expected, causing a major USD rally."
+    },
+    "BOE_RATE_CUT_SEP_25": {
+        "category": "Monetary_Policy",
+        "start_date": "2025-09-18 07:00:00",
+        "end_date": "2025-09-18 10:00:00",
+        "description": "Bank of England unexpectedly cut interest rates by 50bps."
+    }
+}
+
