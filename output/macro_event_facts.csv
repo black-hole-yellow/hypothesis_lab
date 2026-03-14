@@ -1,3 +1,4 @@
 Event_ID,Category,Max_Vol_ZScore,Avg_Trend_Slope,Total_HTF_Sweeps,Avg_4h_Reaction_Pips
-US_CPI_SHOCK_MAY_25,Macro_Data,5.58,0.0297,55,-18.8
-BOE_RATE_CUT_SEP_25,Monetary_Policy,4.35,-0.0211,107,-35.9
+US_ELECTION_2016,US_Presidential_Election,4.21,0.0173,70,-31.8
+US_ELECTION_2020,US_Presidential_Election,5.02,0.0615,67,-52.0
+US_ELECTION_2024,US_Presidential_Election,5.72,0.0417,52,-6.2

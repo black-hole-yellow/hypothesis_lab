@@ -15,7 +15,7 @@ def calculate_macro_facts():
     
     # 1. Load Data & Events
     data_file = "data/gbpusd_data.csv"
-    df = load_and_prep_data(data_file, '2025-01-01', '2026-02-27', '1h')
+    df = load_and_prep_data(data_file, '2016-01-01', '2024-12-31', '1h')
     
     # Calculate Base Technical DNA across entire history to ensure accuracy
     df = add_previous_boundaries(df)
