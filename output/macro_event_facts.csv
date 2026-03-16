@@ -1,4 +1,5 @@
 Event_ID,Category,Max_Vol_ZScore,Avg_Trend_Slope,Total_HTF_Sweeps,Avg_4h_Reaction_Pips
-US_ELECTION_2016,US_Presidential_Election,4.21,0.0173,70,-31.8
-US_ELECTION_2020,US_Presidential_Election,5.02,0.0615,67,-52.0
-US_ELECTION_2024,US_Presidential_Election,5.72,0.0417,52,-6.2
+US_Presidential_Election_20161108,US_Presidential_Election,4.21,0.0173,70,-37.5
+US_Presidential_Election_20201103,US_Presidential_Election,5.02,0.0615,67,-52.0
+US_Presidential_Election_20241105,US_Presidential_Election,5.72,0.0417,52,-6.2
+US_CPI_Shock_20250514,US_CPI_Shock,5.58,0.0297,55,-18.8

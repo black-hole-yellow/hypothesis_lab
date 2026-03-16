@@ -3,7 +3,7 @@ import pandas as pd
 
 # Import our custom Lab modules
 from src.utils.data_loader import load_and_prep_data, add_session_tags
-from src.library.features import add_williams_fractals, add_volatility_zscore, add_normalized_slope
+from src.library.features import add_williams_fractals, add_volatility_zscore, add_normalized_slope, add_log_returns, add_atr, add_price_zscore, add_shannon_entropy, add_hurst_exponent, add_markov_regime
 from src.library.htf_features import add_previous_boundaries, calculate_fvgs 
 from src.hypotheses.london_fake_move import LondonFakeMove
 from src.core.base_hypothesis import State
@@ -38,6 +38,19 @@ def run_lab():
         print("Calculating HTF Boundaries and FVGs...")
         df = add_previous_boundaries(df)
         df = calculate_fvgs(df)
+
+        # New Quant DNA
+        df = add_log_returns(df)
+        df = add_atr(df, lookback=14)
+        df = add_normalized_slope(df, lookback=20, atr_lookback=14)
+        df = add_price_zscore(df, lookback=50)
+        df = add_shannon_entropy(df, lookback=50)
+        
+        print("Calculating Hurst Exponent (this may take a moment)...")
+        df = add_hurst_exponent(df, lookback=100)
+        
+        # Regime MUST be calculated after ATR and Norm_Slope
+        df = add_markov_regime(df)
         
     except Exception as e:
         print(f"Data Pipeline Error: {e}")

@@ -1,40 +1,52 @@
 import pandas as pd
 import numpy as np
 
-def load_and_prep_data(file_path: str, start_date: str, end_date: str, timeframe: str) -> pd.DataFrame:
+import pandas as pd
+import os
+
+def load_and_prep_data(file_path: str, start_date: str, end_date: str, timeframe: str = '1h') -> pd.DataFrame:
     """
-    Loads raw CSV data, formats the Datetime, slices by date, and resamples.
-    Automatically handles comma or space delimited files.
+    Robust data loader. Auto-detects delimiters, handles missing headers, 
+    and standardizes date parsing so data slices correctly.
     """
-    # 1. Detect separator
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Missing data file: {file_path}")
+
+    print(f"Reading {file_path}...")
+
+    # 1. Sniff the first line to figure out the delimiter (tab or comma)
     with open(file_path, 'r') as f:
         first_line = f.readline()
+    delimiter = '\t' if '\t' in first_line else ','
+
+    # 2. Load the CSV. First, try assuming it has headers.
+    try:
+        df = pd.read_csv(file_path, sep=delimiter, low_memory=False)
+        # Clean column names (strip spaces, make uppercase for uniform searching)
+        df.columns = [str(c).strip().upper() for c in df.columns]
         
-    if ',' in first_line:
-        df = pd.read_csv(file_path, header=None, sep=',', engine='python', 
-                         names=['Datetime', 'Open', 'High', 'Low', 'Close'])
-    else:
-        df = pd.read_csv(file_path, header=None, sep=r'\s+', engine='python', 
-                         names=['Date', 'Time', 'Open', 'High', 'Low', 'Close'])
-        df['Datetime'] = df['Date'] + ' ' + df['Time']
-        df.drop(columns=['Date', 'Time'], inplace=True)
-    
-    # 2. Parse Datetime & Sort
-    df['Datetime'] = pd.to_datetime(df['Datetime'])
-    df.set_index('Datetime', inplace=True)
-    df.sort_index(inplace=True)
-    
-    # 3. Slice Dates
-    if start_date in df.index or not df.loc[start_date:end_date].empty:
-        df = df.loc[start_date:end_date]
-    else:
-        raise ValueError(f"Date range {start_date} to {end_date} not found in data.")
-    
-    # 4. Resample
-    resample_dict = {'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last'}
-    df_resampled = df.resample(timeframe).agg(resample_dict).dropna()
-    
-    return df_resampled
+        # Check if standard headers exist. If not, reload assuming no headers.
+        if not any(col in df.columns for col in ['OPEN', 'HIGH', 'CLOSE']):
+            df = pd.read_csv(file_path, sep=delimiter, header=None)
+            
+            # Typical Forex export format: Date, Time, Open, High, Low, Close, Volume
+            if len(df.columns) >= 6:
+                df.columns = ['DATE', 'TIME', 'OPEN', 'HIGH', 'LOW', 'CLOSE'] + [f'EXTRA_{i}' for i in range(len(df.columns)-6)]
+            elif len(df.columns) == 5: # Datetime combined
+                df.columns = ['DATETIME', 'OPEN', 'HIGH', 'LOW', 'CLOSE']
+
+    except Exception as e:
+        print(f"Error reading CSV: {e}")
+        return pd.DataFrame()
+
+    # 3. Handle Datetime parsing
+    if 'DATETIME' in df.columns:
+        df['DATETIME'] = pd.to_datetime(df['DATETIME'])
+    elif 'DATE' in df.columns and 'TIME' in df.columns:
+        # Combine separate Date and Time columns
+        df['DATETIME'] = pd.to_datetime(df['DATE'].astype(str) + ' ' + df['TIME'].astype(str))
+    elif 'DATE' in df.columns:
+        df['DATETIME'] = pd.to_datetime(df['DATE'])
 
 def add_session_tags(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -58,3 +70,8 @@ def add_session_tags(df: pd.DataFrame) -> pd.DataFrame:
     df['Session'] = np.select(conditions, choices, default='None')
     
     return df
+
+
+df = pd.read_csv("data/gbpusd_data.csv", sep='\t', names=['Date','O','H','L','C','X'])
+print(f"Data Starts: {df['Date'].iloc[0]}")
+print(f"Data Ends: {df['Date'].iloc[-1]}")

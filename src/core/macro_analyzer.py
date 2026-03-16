@@ -12,16 +12,30 @@ PIP = 0.0001
 
 def calculate_macro_facts():
     print("--- Starting Macro-Sentiment Analyzer ---")
+
+    # 1. Load Events FIRST so we know what dates we need
+    events = load_macro_events()
+    if not events:
+        return
+
+    # Dynamically find the absolute earliest and latest dates across all events
+    # We add a 10-day buffer to ensure HTF math (like weekly levels) has room to calculate
+    min_date = min(e['start_date'] for e in events) - pd.Timedelta(days=10)
+    max_date = max(e['end_date'] for e in events) + pd.Timedelta(days=10)
+
+    print(f"Loading required data from {min_date.date()} to {max_date.date()}...")
     
     # 1. Load Data & Events
     data_file = "data/gbpusd_data.csv"
-    df = load_and_prep_data(data_file, '2016-01-01', '2024-12-31', '1h')
+    df = load_and_prep_data(data_file, min_date, max_date, '1h')
     
     # Calculate Base Technical DNA across entire history to ensure accuracy
     df = add_previous_boundaries(df)
     df = add_volatility_zscore(df, lookback=50)
     df = add_normalized_slope(df, lookback=20, atr_lookback=14)
     
+    event_facts = []
+
     events = load_macro_events()
     if not events:
         return

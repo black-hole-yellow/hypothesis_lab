@@ -1,33 +1,26 @@
 {
-    "US_CPI_SHOCK_MAY_25": {
-        "category": "Macro_Data",
-        "start_date": "2025-05-14 08:30:00",
-        "end_date": "2025-05-14 12:00:00",
-        "description": "US CPI came in significantly hotter than expected, causing a major USD rally."
-    },
-    "BOE_RATE_CUT_SEP_25": {
-        "category": "Monetary_Policy",
-        "start_date": "2025-09-18 07:00:00",
-        "end_date": "2025-09-18 10:00:00",
-        "description": "Bank of England unexpectedly cut interest rates by 50bps."
-    },
-    "US_ELECTION_2016": {
-        "category": "US_Presidential_Election",
-        "start_date": "2016-11-08 19:00:00",
-        "end_date": "2016-11-09 12:00:00",
-        "description": "Trump vs Clinton. Massive USD volatility and risk-off flows as results came in."
-    },
-    "US_ELECTION_2020": {
-        "category": "US_Presidential_Election",
-        "start_date": "2020-11-03 19:00:00",
-        "end_date": "2020-11-04 12:00:00",
-        "description": "Biden vs Trump. Delayed results caused extended chop and volatility."
-    },
-    "US_ELECTION_2024": {
-        "category": "US_Presidential_Election",
-        "start_date": "2024-11-05 19:00:00",
-        "end_date": "2024-11-06 12:00:00",
-        "description": "2024 Election. Strong, aggressive USD rally throughout the night."
-    }
+    "US_Presidential_Election": [
+        {
+            "start_date": "2016-11-08 22:00:00",
+            "end_date": "2016-11-09 12:00:00",
+            "description": "Trump vs. Clinton. Massive shock overnight USD volatility."
+        },
+        {
+            "start_date": "2020-11-03 22:00:00",
+            "end_date": "2020-11-05 12:00:00",
+            "description": "Biden vs. Trump. Prolonged counting period."
+        },
+        {
+            "start_date": "2024-11-05 22:00:00",
+            "end_date": "2024-11-06 12:00:00",
+            "description": "Recent US Election driving heavy risk flows."
+        }
+    ],
+    "US_CPI_Shock": [
+        {
+            "start_date": "2025-05-14 08:30:00",
+            "end_date": "2025-05-14 12:00:00",
+            "description": "CPI came in significantly hotter than expected."
+        }
+    ]
 }
-
