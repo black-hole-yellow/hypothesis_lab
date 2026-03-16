@@ -6,7 +6,7 @@ import numpy as np
 from utils.data_loader import load_and_prep_data
 from library.features import (
     add_log_returns, add_atr, add_normalized_slope, 
-    add_price_zscore, add_shannon_entropy, add_hurst_exponent, add_markov_regime,add_volatility_ratio, add_hmm_volatility_regime
+    add_price_zscore, add_shannon_entropy, add_hurst_exponent,add_volatility_ratio, add_hmm_volatility_regime
 )
 
 def run_visualization():
