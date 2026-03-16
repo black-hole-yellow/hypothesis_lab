@@ -6,13 +6,13 @@ import numpy as np
 from utils.data_loader import load_and_prep_data
 from library.features import (
     add_log_returns, add_atr, add_normalized_slope, 
-    add_price_zscore, add_shannon_entropy, add_hurst_exponent, add_markov_regime
+    add_price_zscore, add_shannon_entropy, add_hurst_exponent, add_markov_regime,add_volatility_ratio
 )
 
 def run_visualization():
     print("Loading data and calculating quant features...")
     # Load a smaller slice of data so the chart is readable
-    df = load_and_prep_data("data/gbpusd_data.csv", "2026-01-01", "2026-02-27", "1h")
+    df = load_and_prep_data("data/gbpusd_data.csv", "2020-01-01", "2026-02-27", "4h")
     
     # --- ADD THIS SAFETY GUARD ---
     if df is None or df.empty:
@@ -26,6 +26,7 @@ def run_visualization():
     # Apply Quant Features
     df = add_log_returns(df)
     df = add_atr(df, lookback=14)
+    df = add_volatility_ratio(df, short_lookback=14, long_lookback=100)
     df = add_normalized_slope(df, lookback=20, atr_lookback=14)
     df = add_price_zscore(df, lookback=50)
     df = add_shannon_entropy(df, lookback=50)

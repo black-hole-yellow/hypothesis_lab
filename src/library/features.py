@@ -132,10 +132,33 @@ def add_markov_regime(df: pd.DataFrame) -> pd.DataFrame:
     # 2. Directional State (Based on Linear Regression Slope)
     trend_state = np.where(df['Norm_Slope'] > 0, 'Bullish', 'Bearish')
     
-    # 3. Combine into discrete Regime States
-    df['Markov_Regime'] = pd.Series(vol_state) + " / " + pd.Series(trend_state)
+    # 3. Combine into discrete Regime States (Fixing the index alignment!)
+    df['Markov_Regime'] = pd.Series(vol_state, index=df.index) + " / " + pd.Series(trend_state, index=df.index)
     
-    # Forward fill early NaNs
-    df['Markov_Regime'] = df['Markov_Regime'].replace('nan / nan', np.nan).ffill()
+    # Clean up early NaNs
+    df.loc[df['ATR'].isna() | df['Norm_Slope'].isna(), 'Markov_Regime'] = np.nan
+    df['Markov_Regime'] = df['Markov_Regime'].ffill()
+    
+    return df
+
+def add_volatility_ratio(df: pd.DataFrame, short_lookback: int = 14, long_lookback: int = 100) -> pd.DataFrame:
+    """
+    Calculates the Volatility Ratio (Short-term Volatility / Long-term Volatility).
+    Acts as a proxy for GARCH-style volatility clustering.
+    > 1.0 : Volatility is expanding (potential breakout or shock).
+    < 1.0 : Volatility is contracting (consolidation phase).
+    """
+    # Calculate raw True Range
+    high_low = df['High'] - df['Low']
+    high_close = abs(df['High'] - df['Close'].shift(1))
+    low_close = abs(df['Low'] - df['Close'].shift(1))
+    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    
+    # Calculate Short and Long ATR
+    short_atr = tr.rolling(window=short_lookback).mean()
+    long_atr = tr.rolling(window=long_lookback).mean()
+    
+    # Create the ratio
+    df['Vol_Ratio'] = short_atr / long_atr
     
     return df

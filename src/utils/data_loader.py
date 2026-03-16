@@ -5,48 +5,50 @@ import pandas as pd
 import os
 
 def load_and_prep_data(file_path: str, start_date: str, end_date: str, timeframe: str = '1h') -> pd.DataFrame:
-    """
-    Robust data loader. Auto-detects delimiters, handles missing headers, 
-    and standardizes date parsing so data slices correctly.
-    """
     if not os.path.exists(file_path):
-        raise FileNotFoundError(f"Missing data file: {file_path}")
+        print(f"❌ ERROR: Missing data file at {file_path}")
+        return None
 
     print(f"Reading {file_path}...")
 
-    # 1. Sniff the first line to figure out the delimiter (tab or comma)
-    with open(file_path, 'r') as f:
-        first_line = f.readline()
-    delimiter = '\t' if '\t' in first_line else ','
-
-    # 2. Load the CSV. First, try assuming it has headers.
+    # We know the exact structure now: Datetime, Open, High, Low, Close, Volume
+    cols = ['Datetime', 'Open', 'High', 'Low', 'Close', 'Volume']
+    
     try:
-        df = pd.read_csv(file_path, sep=delimiter, low_memory=False)
-        # Clean column names (strip spaces, make uppercase for uniform searching)
-        df.columns = [str(c).strip().upper() for c in df.columns]
+        # Load the raw data
+        df = pd.read_csv(file_path, sep='\t', names=cols, index_col=False, low_memory=False)
         
-        # Check if standard headers exist. If not, reload assuming no headers.
-        if not any(col in df.columns for col in ['OPEN', 'HIGH', 'CLOSE']):
-            df = pd.read_csv(file_path, sep=delimiter, header=None)
-            
-            # Typical Forex export format: Date, Time, Open, High, Low, Close, Volume
-            if len(df.columns) >= 6:
-                df.columns = ['DATE', 'TIME', 'OPEN', 'HIGH', 'LOW', 'CLOSE'] + [f'EXTRA_{i}' for i in range(len(df.columns)-6)]
-            elif len(df.columns) == 5: # Datetime combined
-                df.columns = ['DATETIME', 'OPEN', 'HIGH', 'LOW', 'CLOSE']
-
+        # Convert Datetime and set as index
+        df['Datetime'] = pd.to_datetime(df['Datetime'])
+        df.set_index('Datetime', inplace=True)
+        df.sort_index(inplace=True)
+        
+        # Keep only price columns and force them to be numbers
+        df = df[['Open', 'High', 'Low', 'Close']].astype(float)
+        
     except Exception as e:
-        print(f"Error reading CSV: {e}")
-        return pd.DataFrame()
+        print(f"❌ ERROR parsing CSV: {e}")
+        return None
 
-    # 3. Handle Datetime parsing
-    if 'DATETIME' in df.columns:
-        df['DATETIME'] = pd.to_datetime(df['DATETIME'])
-    elif 'DATE' in df.columns and 'TIME' in df.columns:
-        # Combine separate Date and Time columns
-        df['DATETIME'] = pd.to_datetime(df['DATE'].astype(str) + ' ' + df['TIME'].astype(str))
-    elif 'DATE' in df.columns:
-        df['DATETIME'] = pd.to_datetime(df['DATE'])
+    # Slice the requested date range
+    sliced_df = df.loc[start_date:end_date]
+    
+    if sliced_df.empty:
+        print(f"❌ ERROR: Slicing failed! No data found between {start_date} and {end_date}.")
+        print(f"Available data runs from {df.index[0]} to {df.index[-1]}")
+        return None
+
+    # Standardize the timeframe string for pandas (e.g., '1h', '15min')
+    tf_pandas = timeframe.replace('H', 'h').replace('m', 'min').replace('M', 'min')
+    if tf_pandas.endswith('minh'): 
+        tf_pandas = tf_pandas.replace('minh', 'min')
+
+    # Resample to the requested timeframe
+    resample_map = {'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last'}
+    resampled_df = sliced_df.resample(tf_pandas).agg(resample_map).dropna()
+
+    print(f"✅ Successfully loaded {len(resampled_df)} candles for {timeframe} timeframe.")
+    return resampled_df
 
 def add_session_tags(df: pd.DataFrame) -> pd.DataFrame:
     """

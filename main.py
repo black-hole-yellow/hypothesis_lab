@@ -3,7 +3,7 @@ import pandas as pd
 
 # Import our custom Lab modules
 from src.utils.data_loader import load_and_prep_data, add_session_tags
-from src.library.features import add_williams_fractals, add_volatility_zscore, add_normalized_slope, add_log_returns, add_atr, add_price_zscore, add_shannon_entropy, add_hurst_exponent, add_markov_regime
+from src.library.features import add_williams_fractals, add_volatility_zscore, add_normalized_slope, add_log_returns, add_atr, add_price_zscore, add_shannon_entropy, add_hurst_exponent, add_markov_regime, add_volatility_ratio
 from src.library.htf_features import add_previous_boundaries, calculate_fvgs 
 from src.hypotheses.london_fake_move import LondonFakeMove
 from src.core.base_hypothesis import State
@@ -42,6 +42,7 @@ def run_lab():
         # New Quant DNA
         df = add_log_returns(df)
         df = add_atr(df, lookback=14)
+        df = add_volatility_ratio(df, short_lookback=14, long_lookback=100)
         df = add_normalized_slope(df, lookback=20, atr_lookback=14)
         df = add_price_zscore(df, lookback=50)
         df = add_shannon_entropy(df, lookback=50)
