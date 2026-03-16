@@ -14,6 +14,15 @@ def run_visualization():
     # Load a smaller slice of data so the chart is readable
     df = load_and_prep_data("data/gbpusd_data.csv", "2026-01-01", "2026-02-27", "1h")
     
+    # --- ADD THIS SAFETY GUARD ---
+    if df is None or df.empty:
+        print("❌ ERROR: No data was loaded!")
+        print("Please check that 'gbpusd_data.csv' has data for the requested dates.")
+        return  # Stop the script here instead of crashing
+
+    df = add_log_returns(df)
+    df = add_atr(df, lookback=14)
+
     # Apply Quant Features
     df = add_log_returns(df)
     df = add_atr(df, lookback=14)
