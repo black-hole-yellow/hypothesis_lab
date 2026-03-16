@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+from hmmlearn.hmm import GaussianHMM
 
 def add_williams_fractals(df: pd.DataFrame, timeframe: str, n: int = 2) -> pd.DataFrame:
     """
@@ -160,5 +161,46 @@ def add_volatility_ratio(df: pd.DataFrame, short_lookback: int = 14, long_lookba
     
     # Create the ratio
     df['Vol_Ratio'] = short_atr / long_atr
+    
+    return df
+
+def add_hmm_volatility_regime(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Uses a true Machine Learning Hidden Markov Model (2 states) to calculate 
+    the probability of being in a High Volatility regime.
+    """
+    if 'Log_Return' not in df.columns:
+        df['Log_Return'] = np.log(df['Close'] / df['Close'].shift(1))
+        
+    # We need clean data to train the model
+    train_data = df[['Log_Return']].dropna()
+    
+    # Reshape data for hmmlearn (requires 2D array)
+    X = train_data.values
+    
+    # Fit the 2-state Gaussian HMM
+    # n_iter=100 ensures the model converges to the best fit
+    model = GaussianHMM(n_components=2, covariance_type="diag", n_iter=100, random_state=42)
+    model.fit(X)
+    
+    # Predict the probability of being in each state
+    hidden_states_probs = model.predict_proba(X)
+    
+    # The model doesn't know which state is "High Vol" vs "Low Vol", it just knows they are different.
+    # We identify the High Vol state by finding which state has the higher variance in its covariance matrix.
+    var_state_0 = model.covars_[0][0]
+    var_state_1 = model.covars_[1][0]
+    
+    high_vol_state = 0 if var_state_0 > var_state_1 else 1
+    
+    # Extract just the probability of the High Volatility state
+    high_vol_probs = hidden_states_probs[:, high_vol_state]
+    
+    # Safely map the probabilities back to the main DataFrame matching the exact dates
+    df['High_Vol_Prob'] = np.nan
+    df.loc[train_data.index, 'High_Vol_Prob'] = high_vol_probs
+    
+    # Forward fill any tiny gaps and fill initial NaNs with 0
+    df['High_Vol_Prob'] = df['High_Vol_Prob'].ffill().fillna(0)
     
     return df
