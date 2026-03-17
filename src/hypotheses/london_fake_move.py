@@ -2,15 +2,18 @@ import pandas as pd
 from src.core.base_hypothesis import BaseHypothesis
 
 class LondonFakeMove(BaseHypothesis):
-    def __init__(self, name="London_Sweep_Daily_Profile"):
-        # This calls the parent class to set self.name, self.triggers, and self.daily_logs
-        super().__init__(name) 
+    def __init__(self, config: dict):
+        # Dynamically set the name from the JSON file
+        super().__init__(name=config.get("strategy_name", "London_Pro_Trend_Sweep"), config=config) 
+        
+        # Load parameters explicitly for clean code below
+        self.p = self.config["parameters"]
         
         # State variables
         self.session_date = None
         self.asian_high = 0.0
         self.asian_low = float('inf')
-        self.session_trend_prob = 50.0  # <--- NEW: Stores the Trend Score
+        self.session_trend_prob = 50.0 
         
         # Fractal Storage
         self.asian_up_fractals = []
@@ -22,39 +25,32 @@ class LondonFakeMove(BaseHypothesis):
         self.lo_sweep_time = None
 
     def evaluate_row(self, row, index):
-        # We assume index is EST based on the data_loader
         hour = index.hour
 
         # ---------------------------------------------------------
-        # 1. EVALUATE THE OUTCOME AT NY CLOSE (16:00 EST) & RESET
+        # 1. EVALUATE OUTCOME AT NY CLOSE & RESET
         # ---------------------------------------------------------
-        if hour == 16:
+        if hour == self.p["eval_end_hour"]:
             if self.session_date is not None:
                 day_close = row['Close']
                 
-                # Determine ACTUAL direction of the day based on the NY Close
                 actual_direction = "Inside Range"
                 if day_close < self.asian_low:
-                    actual_direction = "Short"  # Closed below Asia
+                    actual_direction = "Short"  
                 elif day_close > self.asian_high:
-                    actual_direction = "Long"   # Closed above Asia
+                    actual_direction = "Long"   
 
-                # PRO-TREND SUCCESS LOGIC: 
-                # Did it sweep the correct side based on trend, and close in profit?
                 hypothesis_success = False
-                if self.session_trend_prob > 50.0: # Bullish Trend
+                if self.session_trend_prob > self.p["bullish_trend_threshold"]: 
                     if self.lo_sweep_type == "Lower_Sweep" and actual_direction == "Long":
                         hypothesis_success = True
-                elif self.session_trend_prob < 50.0: # Bearish Trend
+                elif self.session_trend_prob < self.p["bullish_trend_threshold"]: 
                     if self.lo_sweep_type == "Upper_Sweep" and actual_direction == "Short":
                         hypothesis_success = True
 
-                # Use UA_Time column if available, else fallback to standard date
                 log_date = row['UA_Time'].date() if 'UA_Time' in row else self.session_date
 
                 if self.lo_sweep_type != "None":
-                    
-                    # Save to Audit Log
                     self.daily_logs.append({
                         'Session_Date': log_date,
                         'Trend_Bullish_Prob_%': self.session_trend_prob,
@@ -77,55 +73,47 @@ class LondonFakeMove(BaseHypothesis):
             self.lo_sweep_type = "None"
             self.lo_sweep_time = None
             
-            # Lock in the HTF Trend for the upcoming Asian/London/NY session
             self.session_trend_prob = row.get('HTF_Bullish_Prob', 50.0)
 
         # ---------------------------------------------------------
-        # 2. BUILD ASIAN RANGE & COLLECT FRACTALS (18:00 to 02:59 EST)
+        # 2. BUILD ASIAN RANGE & COLLECT FRACTALS 
         # ---------------------------------------------------------
-        if (hour >= 18) or (hour < 3):
-            # Track Absolute High/Low
+        if (hour >= self.p["asian_start_hour"]) or (hour < self.p["asian_end_hour"]):
             if row['High'] > self.asian_high: self.asian_high = row['High']
             if row['Low'] < self.asian_low: self.asian_low = row['Low']
                 
-            # Track Williams Fractals
             if row.get('Fractal_Up') == True:
                 self.asian_up_fractals.append(row['High'])
             if row.get('Fractal_Down') == True:
                 self.asian_down_fractals.append(row['Low'])
 
         # ---------------------------------------------------------
-        # 3. LOCK ASIAN RANGE AT LONDON OPEN (03:00 EST)
+        # 3. LOCK ASIAN RANGE
         # ---------------------------------------------------------
-        if hour == 3:
+        if hour == self.p["asian_end_hour"]:
             self.is_asian_range_locked = True
-            # Fallback: If no fractals formed, use the absolute high/low
             if not self.asian_up_fractals: self.asian_up_fractals.append(self.asian_high)
             if not self.asian_down_fractals: self.asian_down_fractals.append(self.asian_low)
 
         # ---------------------------------------------------------
-        # 4. PRO-TREND SWEEP DETECTION (London & NY: 03:00 to 15:59 EST)
+        # 4. PRO-TREND SWEEP DETECTION 
         # ---------------------------------------------------------
-        if self.is_asian_range_locked and self.lo_sweep_type == "None" and (3 <= hour < 16):
+        if self.is_asian_range_locked and self.lo_sweep_type == "None" and (self.p["eval_start_hour"] <= hour < self.p["eval_end_hour"]):
             
             swept_upper = any(row['High'] > fractal for fractal in self.asian_up_fractals)
             swept_lower = any(row['Low'] < fractal for fractal in self.asian_down_fractals)
             
-            # Calculate Ukraine Time for the log seamlessly
             ua_time_str = row['UA_Time'].strftime('%H:%M:%S') if 'UA_Time' in row else (index + pd.Timedelta(hours=2)).strftime('%H:%M:%S')
             
-            # --- THE NEW TREND FILTER ---
-            is_bullish = self.session_trend_prob > 50.0
-            is_bearish = self.session_trend_prob < 50.0
+            is_bullish = self.session_trend_prob > self.p["bullish_trend_threshold"]
+            is_bearish = self.session_trend_prob < self.p["bullish_trend_threshold"]
 
             if is_bearish and swept_upper:
-                # Bearish Trend -> Ignore lower sweeps -> Look for Sweep of Highs -> Go Short
                 self.lo_sweep_type = "Upper_Sweep"
                 self.lo_sweep_time = ua_time_str
                 self.triggers.append({'Datetime': index, 'Direction': 'Short'})
                 
             elif is_bullish and swept_lower:
-                # Bullish Trend -> Ignore upper sweeps -> Look for Sweep of Lows -> Go Long
                 self.lo_sweep_type = "Lower_Sweep"
                 self.lo_sweep_time = ua_time_str
                 self.triggers.append({'Datetime': index, 'Direction': 'Long'})

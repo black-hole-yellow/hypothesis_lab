@@ -72,6 +72,8 @@ class LabEngine:
         print(f"      -> Daily Audit Trail saved to '{audit_filename}'")
 
     def evaluate(self, hypothesis):
+        import json # Make sure json is imported at the top of engine.py
+        
         print("\n[3/3] Running Quantitative Signal Evaluation...")
         if len(hypothesis.triggers) == 0:
             print("❌ No triggers generated.")
@@ -88,3 +90,21 @@ class LabEngine:
         print("=========================================\n")
         
         save_hypothesis_results(metrics, filepath="output/hypothesis_results.csv")
+
+        # --- THE PRODUCTION HANDOFF AUTOMATION ---
+        # Assuming your SignalEvaluator returns metrics like 'T_Stat' and 'Win_Rate'
+        t_stat = metrics.get('T_Stat', 0)
+        
+        # Define your strict production thresholds here
+        if t_stat >= 2.0:
+            print("✅ STRATEGY VALIDATED! Generating Production Artifacts...")
+            
+            config_filename = f"configs/production/{hypothesis.name}.json"
+            
+            # Save the exact configuration that passed the test
+            with open(config_filename, "w") as f:
+                json.dump(hypothesis.config, f, indent=4)
+                
+            print(f"      -> Production JSON Config saved to: {config_filename}")
+        else:
+            print("⚠️ Strategy failed statistical validation (T-Stat < 2.0). No production config generated.")
