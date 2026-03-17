@@ -1,6 +1,7 @@
 import pandas as pd
+from src.core.base_hypothesis import BaseHypothesis
 
-class LondonFakeMove:
+class LondonFakeMove(BaseHypothesis):
     def __init__(self, name="London_Sweep_Daily_Profile"):
         # This calls the parent class to set self.name, self.triggers, and self.daily_logs
         super().__init__(name) 

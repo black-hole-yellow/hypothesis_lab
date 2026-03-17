@@ -8,8 +8,7 @@ from src.library.features import (
     add_shannon_entropy, add_hurst_exponent, add_hmm_volatility_regime, 
     add_volatility_ratio, add_williams_fractals
 )
-# Uncomment if you use the HTF trend logic
-# from src.library.htf_features import add_htf_trend_probability
+from src.library.htf_features import add_htf_trend_probability
 
 class LabEngine:
     def __init__(self, data_file: str, start_date: str, end_date: str, timeframe: str = "1h"):
@@ -44,7 +43,7 @@ class LabEngine:
         print("      -> Training HMM for Volatility Regimes...")
         df = add_hmm_volatility_regime(df)
 
-        # df = add_htf_trend_probability(df, htf='4h', lookback=60) # If using trend confluence
+        df = add_htf_trend_probability(df, htf='4h', lookback=60) 
         
         df.dropna(inplace=True)
         print(f"      -> DNA complete. Valid rows remaining: {len(df)}")
