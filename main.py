@@ -1,148 +1,29 @@
 import os
-import pandas as pd
+from src.core.engine import LabEngine
 
-# 1. Pipeline Imports
-from src.utils.data_loader import load_and_prep_data
-from src.core.evaluator import SignalEvaluator, save_hypothesis_results
-from src.library.htf_features import add_htf_trend_probability
-
-# 2. Feature (DNA) Imports
-# (Make sure all these exist in your src/library/features.py or htf_features.py)
-from src.library.features import (
-    add_log_returns, 
-    add_atr, 
-    add_normalized_slope, 
-    add_price_zscore, 
-    add_shannon_entropy, 
-    add_hurst_exponent, 
-    add_hmm_volatility_regime, 
-    add_volatility_ratio,
-    add_williams_fractals
-    
-)
-
-# 3. Hypothesis Import
+# IMPORT YOUR HYPOTHESES HERE
 from src.hypotheses.london_fake_move import LondonFakeMove
 
+def main():
+    # 1. Initialize the Engine
+    engine = LabEngine(
+        data_file="data/gbpusd_data.csv",
+        start_date="2015-01-01",
+        end_date="2026-02-27",
+        timeframe="1h"
+    )
 
-def run_lab():
-    print("=========================================")
-    print("      QUANT HYPOTHESIS LAB v2.0          ")
-    print("=========================================")
-
-    # ---------------------------------------------------------
-    # STEP 1: LOAD DATA
-    # ---------------------------------------------------------
-    data_file = "data/gbpusd_data.csv"
-    start_date = "2015-01-01"
-    end_date = "2026-02-27"
-    timeframe = "1h"
-
-    df = load_and_prep_data(data_file, start_date, end_date, timeframe)
-    
-    if df is None or df.empty:
-        print("❌ Lab Terminated: No data available.")
+    # 2. Build the dataset
+    if not engine.prepare_data():
         return
 
-    # ---------------------------------------------------------
-    # STEP 2: APPLY QUANTITATIVE DNA (Feature Engineering)
-    # ---------------------------------------------------------
-    print("\n[1/3] Calculating Market DNA & Quant Features...")
-    
-    # Base technicals
-    # df = add_session_tags(df) 
-    # df = add_williams_fractals(df, timeframe=timeframe, n=2)
-    
-    # Core Mathematical Quant Features
-    df = add_log_returns(df)
-    df = add_atr(df, lookback=14)
-    df = add_volatility_ratio(df, short_lookback=14, long_lookback=100)
-    df = add_normalized_slope(df, lookback=20, atr_lookback=14)
-    df = add_price_zscore(df, lookback=50)
-    df = add_shannon_entropy(df, lookback=50)
-    df = add_williams_fractals(df,timeframe=timeframe, n=2)
-    
-    
-    
-    print("      -> Calculating Hurst Exponent (Heavy computation)...")
-    df = add_hurst_exponent(df, lookback=100)
-    
-    print("      -> Training HMM for Volatility Regimes...")
-    df = add_hmm_volatility_regime(df)
+    # 3. SELECT YOUR HYPOTHESIS
+    active_hypothesis = LondonFakeMove(name="London_Sweep_Daily_Profile")
 
-    # --- ADD THIS NEW LINE ---
-    print("      -> Calculating HTF Trend Confluence Engine...")
-    df = add_htf_trend_probability(df, htf='4h', lookback=60)
-
-    # Clean up NaNs created by rolling windows before running the hypothesis
-    df.dropna(inplace=True)
-    print(f"      -> DNA complete. Valid rows remaining: {len(df)}")
-
-
-    # ---------------------------------------------------------
-    # STEP 3: RUN HYPOTHESIS
-    # ---------------------------------------------------------
-    print("\n[2/3] Executing Hypothesis Engine...")
-    
-    hypothesis_name = "London_Fake_Move_V1"
-    hypothesis = LondonFakeMove(name=hypothesis_name)
-
-    current_day = None
-
-    # Standard execution loop (simulating ticking data)
-    for index, row in df.iterrows():
-        
-        # --- TERMINAL PROGRESS TRACKER ---
-        day_date = index.date()
-        if day_date != current_day:
-            # '\r' forces the terminal to overwrite the current line instead of scrolling
-            # 'flush=True' forces the terminal to update instantly
-            print(f"\r      -> Processing date: {day_date} ...", end="", flush=True)
-            current_day = day_date
-        # ---------------------------------
-
-        # Pass the row and current index to your hypothesis logic
-        hypothesis.evaluate_row(row, index)
-    
-    audit_df = pd.DataFrame(hypothesis.daily_logs)
-    audit_df.to_csv("output/daily_audit_log.csv", index=False)
-    print("      -> Daily Audit Trail saved to 'output/daily_audit_log.csv'")
-        
-    # The '\n' drops us to a new line after the progress tracker finishes
-    print(f"\n      -> Hypothesis finished. Raw triggers generated: {len(hypothesis.triggers)}")
-
-
-    # ---------------------------------------------------------
-    # STEP 4: SIGNAL EVALUATION & METRICS
-    # ---------------------------------------------------------
-    print("\n[3/3] Running Quantitative Signal Evaluation...")
-    
-    if len(hypothesis.triggers) == 0:
-        print("❌ No triggers generated. Check your hypothesis logic.")
-        return
-
-    # Ensure your triggers inside LondonFakeMove are saved as dictionaries 
-    # Example: self.triggers.append({'Datetime': index, 'Direction': 'Long'})
-    evaluator = SignalEvaluator(df, hypothesis.triggers, hypothesis_name)
-    metrics = evaluator.calculate_metrics()
-    
-    print("\n=========================================")
-    print("        HYPOTHESIS TEAR SHEET            ")
-    print("=========================================")
-    for key, value in metrics.items():
-        # Formatting to make it look clean in the terminal
-        print(f"  {key:<20} : {value}")
-    print("=========================================\n")
-    
-    # ---------------------------------------------------------
-    # STEP 5: SAVE TO REGISTRY (Only if it passes edge tests)
-    # ---------------------------------------------------------
-    # The save_hypothesis_results function handles the logic of checking
-    # if the status is "PASSED" (T-Stat > 2.0 and IC > 0.0)
-    save_hypothesis_results(metrics, filepath="output/hypothesis_results.csv")
-
+    # 4. Run and Evaluate
+    engine.run_hypothesis(active_hypothesis)
+    engine.evaluate(active_hypothesis)
 
 if __name__ == "__main__":
-    # Create necessary output folders if they don't exist
     os.makedirs("output", exist_ok=True)
-    run_lab()
+    main()

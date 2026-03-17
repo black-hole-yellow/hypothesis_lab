@@ -1,10 +1,9 @@
 import pandas as pd
 
 class LondonFakeMove:
-    def __init__(self, name="Pro_Trend_Sweep_Daily_Profile"):
-        self.name = name
-        self.triggers = []
-        self.daily_logs = [] 
+    def __init__(self, name="London_Sweep_Daily_Profile"):
+        # This calls the parent class to set self.name, self.triggers, and self.daily_logs
+        super().__init__(name) 
         
         # State variables
         self.session_date = None
