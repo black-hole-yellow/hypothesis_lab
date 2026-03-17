@@ -4,6 +4,7 @@ import pandas as pd
 # 1. Pipeline Imports
 from src.utils.data_loader import load_and_prep_data
 from src.core.evaluator import SignalEvaluator, save_hypothesis_results
+from src.library.htf_features import add_htf_trend_probability
 
 # 2. Feature (DNA) Imports
 # (Make sure all these exist in your src/library/features.py or htf_features.py)
@@ -61,11 +62,16 @@ def run_lab():
     df = add_shannon_entropy(df, lookback=50)
     df = add_williams_fractals(df,timeframe=timeframe, n=2)
     
+    
     print("      -> Calculating Hurst Exponent (Heavy computation)...")
     df = add_hurst_exponent(df, lookback=100)
     
     print("      -> Training HMM for Volatility Regimes...")
     df = add_hmm_volatility_regime(df)
+
+    # --- ADD THIS NEW LINE ---
+    print("      -> Calculating HTF Trend Confluence Engine...")
+    df = add_htf_trend_probability(df, htf='4h', lookback=20)
 
     # Clean up NaNs created by rolling windows before running the hypothesis
     df.dropna(inplace=True)

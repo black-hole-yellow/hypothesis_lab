@@ -12,6 +12,7 @@ class LondonFakeMove:
         self.session_date = None
         self.asian_high = 0.0
         self.asian_low = float('inf')
+        self.session_trend_prob = 50.0
         
         # Fractal Storage
         self.asian_up_fractals = []
@@ -52,6 +53,7 @@ class LondonFakeMove:
                 # Save to Audit Log
                 self.daily_logs.append({
                     'Session_Date': self.session_date,
+                    'Trend_Bullish_Prob_%': self.session_trend_prob,
                     'Asian_High': self.asian_high,
                     'Asian_Low': self.asian_low,
                     'LO_Sweep_Type': self.lo_sweep_type,
@@ -65,6 +67,7 @@ class LondonFakeMove:
             self.session_date = row['UA_Time'].date()
             self.asian_high = row['High']
             self.asian_low = row['Low']
+            self.session_trend_prob = row.get('HTF_Bullish_Prob', 50.0)
             self.asian_up_fractals = []
             self.asian_down_fractals = []
             self.is_asian_range_locked = False

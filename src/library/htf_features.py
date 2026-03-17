@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from datetime import timedelta
+from scipy.stats import linregress
 
 PIP = 0.0001 # Standard pip size for GBPUSD
 
@@ -248,3 +248,112 @@ def get_confirmed_swings(weekly_df: pd.DataFrame, daily_df: pd.DataFrame, curren
         'Highs': final_highs,
         'Lows': final_lows
     }
+
+def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int = 20) -> pd.DataFrame:
+    """
+    Calculates a 0-100% Bullish Trend Probability using HTF Confluence.
+    50% based on Market Structure (Higher Highs / Lower Lows).
+    50% based on Statistical Vector (Linear Regression Slope * R-Squared).
+    """
+    # 1. Resample to Higher Timeframe
+    # We use 'h' for pandas timeframe formatting compatibility
+    htf_df = pd.DataFrame()
+    htf_df['HTF_Close'] = df['Close'].resample(htf).last()
+    htf_df['HTF_High'] = df['High'].resample(htf).max()
+    htf_df['HTF_Low'] = df['Low'].resample(htf).min()
+    htf_df.dropna(inplace=True)
+
+    # ---------------------------------------------------------
+    # PART 1: STATISTICAL VECTOR (Linear Regression)
+    # ---------------------------------------------------------
+    slopes = []
+    r_squareds = []
+    
+    for i in range(len(htf_df)):
+        if i < lookback:
+            slopes.append(0)
+            r_squareds.append(0)
+            continue
+            
+        y = htf_df['HTF_Close'].iloc[i-lookback:i].values
+        x = np.arange(lookback)
+        slope, intercept, r_value, p_value, std_err = linregress(x, y)
+        slopes.append(slope)
+        r_squareds.append(r_value**2)
+
+    htf_df['Slope'] = slopes
+    htf_df['R2'] = r_squareds
+
+    # Stat Score: Max 50%. 
+    # If slope is Up: 50 * R^2. If slope is Down: 0.
+    htf_df['Stat_Score'] = np.where(htf_df['Slope'] > 0, 50 * htf_df['R2'], 0)
+
+    # ---------------------------------------------------------
+    # PART 2: MARKET STRUCTURE (Fractals)
+    # ---------------------------------------------------------
+    n = 2
+    htf_df['Fractal_Up'] = False
+    htf_df['Fractal_Down'] = False
+    
+    # Calculate HTF Fractals
+    for i in range(2*n, len(htf_df)):
+        window_high = htf_df['HTF_High'].iloc[i - 2*n : i + 1]
+        window_low = htf_df['HTF_Low'].iloc[i - 2*n : i + 1]
+        mid_idx = i - n
+        
+        if htf_df['HTF_High'].iloc[mid_idx] == window_high.max():
+            htf_df.iat[mid_idx, htf_df.columns.get_loc('Fractal_Up')] = True
+        if htf_df['HTF_Low'].iloc[mid_idx] == window_low.min():
+            htf_df.iat[mid_idx, htf_df.columns.get_loc('Fractal_Down')] = True
+
+    # Trace HH/HL Logic without lookahead bias
+    struct_scores = []
+    last_up_1, last_up_2 = None, None
+    last_down_1, last_down_2 = None, None
+
+    for i in range(len(htf_df)):
+        # To avoid lookahead, we only acknowledge a fractal 'n' periods after it formed
+        check_idx = i - n
+        if check_idx >= 0:
+            if htf_df['Fractal_Up'].iloc[check_idx]:
+                last_up_2 = last_up_1
+                last_up_1 = htf_df['HTF_High'].iloc[check_idx]
+            if htf_df['Fractal_Down'].iloc[check_idx]:
+                last_down_2 = last_down_1
+                last_down_1 = htf_df['HTF_Low'].iloc[check_idx]
+
+        score = 25 # Default Neutral
+        if last_up_1 and last_up_2 and last_down_1 and last_down_2:
+            hh = last_up_1 > last_up_2
+            hl = last_down_1 > last_down_2
+            lh = last_up_1 < last_up_2
+            ll = last_down_1 < last_down_2
+
+            if hh and hl:
+                score = 50  # Perfect Bullish Structure
+            elif lh and ll:
+                score = 0   # Perfect Bearish Structure
+        
+        struct_scores.append(score)
+
+    htf_df['Struct_Score'] = struct_scores
+
+    # ---------------------------------------------------------
+    # MERGE & ALIGN WITH 1H CHART
+    # ---------------------------------------------------------
+    htf_df['HTF_Bullish_Prob'] = htf_df['Stat_Score'] + htf_df['Struct_Score']
+    
+    # SHIFT BY 1 HTF BAR! This guarantees the algorithm only knows 
+    # the 4H trend AFTER the 4H candle has completely closed.
+    htf_df['HTF_Bullish_Prob'] = htf_df['HTF_Bullish_Prob'].shift(1)
+
+    # Map back to your main dataframe
+    df = df.join(htf_df[['HTF_Bullish_Prob']])
+    
+    # Forward fill the 4H value across the four 1H candles
+    df['HTF_Bullish_Prob'] = df['HTF_Bullish_Prob'].ffill().fillna(50.0) 
+    
+    # Round to 1 decimal place for clean logging
+    df['HTF_Bullish_Prob'] = df['HTF_Bullish_Prob'].round(1)
+
+    return df
