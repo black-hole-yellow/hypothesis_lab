@@ -5,6 +5,8 @@ class LondonFakeMove:
         self.name = name
         self.triggers = []
         self.daily_logs = [] 
+
+        self.ua_offset = pd.Timedelta(hours=2)
         
         # State variables
         self.session_date = None
@@ -19,6 +21,8 @@ class LondonFakeMove:
         self.is_asian_range_locked = False
         self.lo_sweep_type = "None"
         self.lo_sweep_time = None
+
+        self.ua_offset = pd.Timedelta(hours=2)
 
     def evaluate_row(self, row, index):
         hour = index.hour
@@ -67,7 +71,7 @@ class LondonFakeMove:
             self.lo_sweep_type = "None"
             self.lo_sweep_time = None
 
-            self.ua_offset = pd.Timedelta(hours=2)
+            ua_time = (index + self.ua_offset).strftime('%H:%M:%S')
 
         # ---------------------------------------------------------
         # 2. BUILD ASIAN RANGE & COLLECT FRACTALS (18:00 to 01:59)
