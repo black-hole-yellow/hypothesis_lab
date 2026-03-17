@@ -249,7 +249,7 @@ def get_confirmed_swings(weekly_df: pd.DataFrame, daily_df: pd.DataFrame, curren
         'Lows': final_lows
     }
 
-def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int = 20) -> pd.DataFrame:
+def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int = 120) -> pd.DataFrame:
     """
     Calculates a 0-100% Bullish Trend Probability using HTF Confluence.
     50% based on Market Structure (Higher Highs / Lower Lows).

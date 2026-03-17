@@ -63,6 +63,7 @@ def run_lab():
     df = add_williams_fractals(df,timeframe=timeframe, n=2)
     
     
+    
     print("      -> Calculating Hurst Exponent (Heavy computation)...")
     df = add_hurst_exponent(df, lookback=100)
     
@@ -71,7 +72,7 @@ def run_lab():
 
     # --- ADD THIS NEW LINE ---
     print("      -> Calculating HTF Trend Confluence Engine...")
-    df = add_htf_trend_probability(df, htf='4h', lookback=20)
+    df = add_htf_trend_probability(df, htf='4h', lookback=60)
 
     # Clean up NaNs created by rolling windows before running the hypothesis
     df.dropna(inplace=True)
