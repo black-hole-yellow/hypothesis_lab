@@ -30,7 +30,7 @@ class LondonFakeMove:
         # ---------------------------------------------------------
         # 1. EVALUATE THE OUTCOME AT 18:00 & RESET FOR NEW DAY
         # ---------------------------------------------------------
-        if hour == 11:
+        if hour == 17:
             if self.session_date is not None:
                 day_close = row['Close']
                 
@@ -62,7 +62,7 @@ class LondonFakeMove:
                 })
 
             # --- RESET EVERYTHING FOR THE NEW SESSION ---
-            self.session_date = (index + pd.Timedelta(days=1)).date()
+            self.session_date = row['UA_Time'].date()
             self.asian_high = row['High']
             self.asian_low = row['Low']
             self.asian_up_fractals = []
@@ -97,24 +97,25 @@ class LondonFakeMove:
             if not self.asian_down_fractals: self.asian_down_fractals.append(self.asian_low)
 
         # ---------------------------------------------------------
-        # 4. DETECT LONDON FRACTAL SWEEP (02:00 to 07:59)
+        # 4. DETECT LONDON FRACTAL SWEEP (02:00 to 07:59 EST)
         # ---------------------------------------------------------
         if self.is_asian_range_locked and self.lo_sweep_type == "None" and (2 <= hour < 8):
             
             swept_upper = any(row['High'] > fractal for fractal in self.asian_up_fractals)
             swept_lower = any(row['Low'] < fractal for fractal in self.asian_down_fractals)
             
-            # Calculate Ukraine Time for the log
-            ua_time = (index + self.ua_offset).strftime('%H:%M:%S')
+            # Use the dynamically calculated Ukraine time from the Data Loader!
+            ua_time_str = row['UA_Time'].strftime('%H:%M:%S')
             
             if swept_upper and swept_lower:
                 self.lo_sweep_type = "Both_Swept"
-                self.lo_sweep_time = ua_time
+                self.lo_sweep_time = ua_time_str
             elif swept_upper:
                 self.lo_sweep_type = "Upper_Sweep"
-                self.lo_sweep_time = ua_time
-                self.triggers.append({'Datetime': index, 'Direction': 'Short'})
+                self.lo_sweep_time = ua_time_str
+                # Keep index as the trigger Datetime so the evaluator finds the row properly
+                self.triggers.append({'Datetime': index, 'Direction': 'Short', 'UA_Time': row['UA_Time']})
             elif swept_lower:
                 self.lo_sweep_type = "Lower_Sweep"
-                self.lo_sweep_time = ua_time
-                self.triggers.append({'Datetime': index, 'Direction': 'Long'})
+                self.lo_sweep_time = ua_time_str
+                self.triggers.append({'Datetime': index, 'Direction': 'Long', 'UA_Time': row['UA_Time']})
