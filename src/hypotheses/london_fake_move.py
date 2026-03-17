@@ -42,9 +42,9 @@ class LondonFakeMove(BaseHypothesis):
         
         # 1. Define your condition
         # (This is just an example condition for you to replace)
-        is_london_open = index.hour == 8 
+        is_london_open = index.hour == 2  
         is_mean_reverting = row['Hurst'] < 0.5
-        is_overextended = abs(row['Price_ZScore']) > 2.0
+        is_overextended = abs(row['Price_ZScore']) > 3
 
         # 2. If the condition is met, RECORD the trigger
         if is_london_open and is_mean_reverting and is_overextended:

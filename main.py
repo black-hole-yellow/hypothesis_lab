@@ -79,13 +79,25 @@ def run_lab():
     hypothesis_name = "London_Fake_Move_V1"
     hypothesis = LondonFakeMove(name=hypothesis_name)
 
+    current_day = None
+
     # Standard execution loop (simulating ticking data)
     for index, row in df.iterrows():
+        
+        # --- TERMINAL PROGRESS TRACKER ---
+        day_date = index.date()
+        if day_date != current_day:
+            # '\r' forces the terminal to overwrite the current line instead of scrolling
+            # 'flush=True' forces the terminal to update instantly
+            print(f"\r      -> Processing date: {day_date} ...", end="", flush=True)
+            current_day = day_date
+        # ---------------------------------
+
         # Pass the row and current index to your hypothesis logic
-        # It should append valid signals to 'hypothesis.triggers'
         hypothesis.evaluate_row(row, index)
         
-    print(f"      -> Hypothesis finished. Raw triggers generated: {len(hypothesis.triggers)}")
+    # The '\n' drops us to a new line after the progress tracker finishes
+    print(f"\n      -> Hypothesis finished. Raw triggers generated: {len(hypothesis.triggers)}")
 
 
     # ---------------------------------------------------------
