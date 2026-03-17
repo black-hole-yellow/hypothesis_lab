@@ -95,6 +95,10 @@ def run_lab():
 
         # Pass the row and current index to your hypothesis logic
         hypothesis.evaluate_row(row, index)
+    
+    audit_df = pd.DataFrame(hypothesis.daily_logs)
+    audit_df.to_csv("output/daily_audit_log.csv", index=False)
+    print("      -> Daily Audit Trail saved to 'output/daily_audit_log.csv'")
         
     # The '\n' drops us to a new line after the progress tracker finishes
     print(f"\n      -> Hypothesis finished. Raw triggers generated: {len(hypothesis.triggers)}")
