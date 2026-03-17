@@ -1,99 +1,124 @@
 import os
 import pandas as pd
 
-# Import our custom Lab modules
-from src.utils.data_loader import load_and_prep_data, add_session_tags
-from src.library.features import add_williams_fractals, add_volatility_zscore, add_normalized_slope, add_log_returns, add_atr, add_price_zscore, add_shannon_entropy, add_hurst_exponent, add_markov_regime, add_volatility_ratio
-from src.library.htf_features import add_previous_boundaries, calculate_fvgs 
+# 1. Pipeline Imports
+from src.utils.data_loader import load_and_prep_data
+from src.core.evaluator import SignalEvaluator, save_hypothesis_results
+
+# 2. Feature (DNA) Imports
+# (Make sure all these exist in your src/library/features.py or htf_features.py)
+from src.library.features import (
+    add_log_returns, 
+    add_atr, 
+    add_normalized_slope, 
+    add_price_zscore, 
+    add_shannon_entropy, 
+    add_hurst_exponent, 
+    add_hmm_volatility_regime, 
+    add_volatility_ratio
+    # add_session_tags,      # Uncomment if you have this
+    # add_williams_fractals  # Uncomment if you have this
+)
+
+# 3. Hypothesis Import
 from src.hypotheses.london_fake_move import LondonFakeMove
-from src.core.base_hypothesis import State
+
 
 def run_lab():
-    # 1. Configuration
+    print("=========================================")
+    print("      QUANT HYPOTHESIS LAB v2.0          ")
+    print("=========================================")
+
+    # ---------------------------------------------------------
+    # STEP 1: LOAD DATA
+    # ---------------------------------------------------------
     data_file = "data/gbpusd_data.csv"
-    output_dir = "output"
-    output_file = f"{output_dir}/hypothesis_results.csv"
+    start_date = "2015-01-01"
+    end_date = "2026-02-27"
+    timeframe = "1h"
+
+    df = load_and_prep_data(data_file, start_date, end_date, timeframe)
     
-    start_date = '2025-01-01' # Adjust to your desired testing range
-    end_date = '2026-02-27'
-    timeframe = '1h' 
-    
-    os.makedirs(output_dir, exist_ok=True)
-
-    print(f"--- Hypothesis Lab Execution Started ---")
-    print(f"Loading data from {start_date} to {end_date} ({timeframe})...")
-
-    # 2. Data Pipeline
-    try:
-        # Load Base Data
-        df = load_and_prep_data(data_file, start_date, end_date, timeframe)
-        
-        # Apply Intrinsic Features (DNA)
-        df = add_session_tags(df)
-        df = add_williams_fractals(df, timeframe=timeframe, n=2)
-        df = add_volatility_zscore(df, lookback=50)
-        df = add_normalized_slope(df, lookback=20, atr_lookback=14)
-        
-        # Apply HTF / Environmental Features (Weather) <--- NEW PIPELINE STEP
-        print("Calculating HTF Boundaries and FVGs...")
-        df = add_previous_boundaries(df)
-        df = calculate_fvgs(df)
-
-        # New Quant DNA
-        df = add_log_returns(df)
-        df = add_atr(df, lookback=14)
-        df = add_volatility_ratio(df, short_lookback=14, long_lookback=100)
-        df = add_normalized_slope(df, lookback=20, atr_lookback=14)
-        df = add_price_zscore(df, lookback=50)
-        df = add_shannon_entropy(df, lookback=50)
-        
-        print("Calculating Hurst Exponent (this may take a moment)...")
-        df = add_hurst_exponent(df, lookback=100)
-        
-        # Regime MUST be calculated after ATR and Norm_Slope
-        df = add_markov_regime(df)
-        
-    except Exception as e:
-        print(f"Data Pipeline Error: {e}")
+    if df is None or df.empty:
+        print("❌ Lab Terminated: No data available.")
         return
 
-    print(f"Data ready. Total candles: {len(df)}. Running hypotheses...")
+    # ---------------------------------------------------------
+    # STEP 2: APPLY QUANTITATIVE DNA (Feature Engineering)
+    # ---------------------------------------------------------
+    print("\n[1/3] Calculating Market DNA & Quant Features...")
+    
+    # Base technicals
+    # df = add_session_tags(df) 
+    # df = add_williams_fractals(df, timeframe=timeframe, n=2)
+    
+    # Core Mathematical Quant Features
+    df = add_log_returns(df)
+    df = add_atr(df, lookback=14)
+    df = add_volatility_ratio(df, short_lookback=14, long_lookback=100)
+    df = add_normalized_slope(df, lookback=20, atr_lookback=14)
+    df = add_price_zscore(df, lookback=50)
+    df = add_shannon_entropy(df, lookback=50)
+    
+    print("      -> Calculating Hurst Exponent (Heavy computation)...")
+    df = add_hurst_exponent(df, lookback=100)
+    
+    print("      -> Training HMM for Volatility Regimes...")
+    df = add_hmm_volatility_regime(df)
 
-    # 3. Engine Setup
-    active_hypotheses = [LondonFakeMove()]
-    results_database = []
+    # Clean up NaNs created by rolling windows before running the hypothesis
+    df.dropna(inplace=True)
+    print(f"      -> DNA complete. Valid rows remaining: {len(df)}")
 
-    # 4. The Event Loop
+
+    # ---------------------------------------------------------
+    # STEP 3: RUN HYPOTHESIS
+    # ---------------------------------------------------------
+    print("\n[2/3] Executing Hypothesis Engine...")
+    
+    hypothesis_name = "London_Fake_Move_V1"
+    hypothesis = LondonFakeMove(name=hypothesis_name)
+
+    # Standard execution loop (simulating ticking data)
     for index, row in df.iterrows():
-        for hypo in active_hypotheses:
-            hypo.process_candle(index, row)
-            
-            if hypo.state == State.COMPLETED:
-                results_database.append(hypo.get_csv_row())
-                hypo.reset()
-
-    # 5. Export Results
-    if results_database:
-        results_df = pd.DataFrame(results_database)
+        # Pass the row and current index to your hypothesis logic
+        # It should append valid signals to 'hypothesis.triggers'
+        hypothesis.evaluate_row(row, index)
         
-        # Convert NY Time to Ukraine Time for the CSV
-        results_df['Trigger_Time'] = pd.to_datetime(results_df['Trigger_Time'])
-        results_df['Trigger_Time'] = (results_df['Trigger_Time']
-                                      .dt.tz_localize('US/Eastern')
-                                      .dt.tz_convert('Europe/Kyiv')
-                                      .dt.tz_localize(None))
+    print(f"      -> Hypothesis finished. Raw triggers generated: {len(hypothesis.triggers)}")
 
-        results_df.to_csv(output_file, index=False)
-        print(f"\nSUCCESS: Logged {len(results_df)} events.")
-        print(f"Results saved to: {output_file}")
-        
-        win_rate = (results_df['Result'] == True).mean() * 100
-        print(f"\n--- Quick Stat: {active_hypotheses[0].hypothesis_id} ---")
-        print(f"Total Occurrences: {len(results_df)}")
-        print(f"True (Target Hit): {results_df['Result'].sum()}")
-        print(f"Win Rate: {win_rate:.2f}%")
-    else:
-        print("\nNo events triggered during this date range.")
+
+    # ---------------------------------------------------------
+    # STEP 4: SIGNAL EVALUATION & METRICS
+    # ---------------------------------------------------------
+    print("\n[3/3] Running Quantitative Signal Evaluation...")
+    
+    if len(hypothesis.triggers) == 0:
+        print("❌ No triggers generated. Check your hypothesis logic.")
+        return
+
+    # Ensure your triggers inside LondonFakeMove are saved as dictionaries 
+    # Example: self.triggers.append({'Datetime': index, 'Direction': 'Long'})
+    evaluator = SignalEvaluator(df, hypothesis.triggers, hypothesis_name)
+    metrics = evaluator.calculate_metrics()
+    
+    print("\n=========================================")
+    print("        HYPOTHESIS TEAR SHEET            ")
+    print("=========================================")
+    for key, value in metrics.items():
+        # Formatting to make it look clean in the terminal
+        print(f"  {key:<20} : {value}")
+    print("=========================================\n")
+    
+    # ---------------------------------------------------------
+    # STEP 5: SAVE TO REGISTRY (Only if it passes edge tests)
+    # ---------------------------------------------------------
+    # The save_hypothesis_results function handles the logic of checking
+    # if the status is "PASSED" (T-Stat > 2.0 and IC > 0.0)
+    save_hypothesis_results(metrics, filepath="output/hypothesis_results.csv")
+
 
 if __name__ == "__main__":
+    # Create necessary output folders if they don't exist
+    os.makedirs("output", exist_ok=True)
     run_lab()
