@@ -16,7 +16,7 @@ from src.library.features import (
     add_hurst_exponent, 
     add_hmm_volatility_regime, 
     add_volatility_ratio,
-    add_htf_trend
+    add_williams_fractals
     
 )
 
@@ -59,6 +59,7 @@ def run_lab():
     df = add_normalized_slope(df, lookback=20, atr_lookback=14)
     df = add_price_zscore(df, lookback=50)
     df = add_shannon_entropy(df, lookback=50)
+    df = add_williams_fractals(df,timeframe=timeframe, n=2)
     
     print("      -> Calculating Hurst Exponent (Heavy computation)...")
     df = add_hurst_exponent(df, lookback=100)
