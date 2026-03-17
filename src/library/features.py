@@ -204,3 +204,28 @@ def add_hmm_volatility_regime(df: pd.DataFrame) -> pd.DataFrame:
     df['High_Vol_Prob'] = df['High_Vol_Prob'].ffill().fillna(0)
     
     return df
+
+def add_htf_trend(df: pd.DataFrame, htf: str = 'D', ema_period: int = 20) -> pd.DataFrame:
+    """
+    Resamples data to a Higher Timeframe (e.g., 'D' for Daily, '4h' for 4-Hour),
+    calculates the trend using an EMA, and maps it back to the 1H timeframe.
+    """
+    # 1. Resample to the Higher Timeframe
+    htf_df = df['Close'].resample(htf).last().to_frame(name='HTF_Close')
+    
+    # 2. Calculate the HTF Trend (Price vs 20 EMA)
+    htf_df['HTF_EMA'] = htf_df['HTF_Close'].ewm(span=ema_period, adjust=False).mean()
+    htf_df['HTF_Trend_Up'] = htf_df['HTF_Close'] > htf_df['HTF_EMA']
+    htf_df['HTF_Trend_Down'] = htf_df['HTF_Close'] < htf_df['HTF_EMA']
+    
+    # 3. Shift by 1 period to prevent lookahead bias! 
+    # (Monday's Daily Trend shouldn't be known until Tuesday opens)
+    htf_df['HTF_Trend_Up'] = htf_df['HTF_Trend_Up'].shift(1)
+    htf_df['HTF_Trend_Down'] = htf_df['HTF_Trend_Down'].shift(1)
+    
+    # 4. Merge back to the 1H chart and forward-fill
+    df = df.join(htf_df[['HTF_Trend_Up', 'HTF_Trend_Down']])
+    df['HTF_Trend_Up'] = df['HTF_Trend_Up'].ffill().fillna(False)
+    df['HTF_Trend_Down'] = df['HTF_Trend_Down'].ffill().fillna(False)
+    
+    return df

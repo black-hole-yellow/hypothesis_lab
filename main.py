@@ -15,9 +15,9 @@ from src.library.features import (
     add_shannon_entropy, 
     add_hurst_exponent, 
     add_hmm_volatility_regime, 
-    add_volatility_ratio
-    # add_session_tags,      # Uncomment if you have this
-    # add_williams_fractals  # Uncomment if you have this
+    add_volatility_ratio,
+    add_htf_trend
+    
 )
 
 # 3. Hypothesis Import
