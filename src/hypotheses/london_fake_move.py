@@ -67,6 +67,8 @@ class LondonFakeMove:
             self.lo_sweep_type = "None"
             self.lo_sweep_time = None
 
+            self.ua_offset = pd.Timedelta(hours=2)
+
         # ---------------------------------------------------------
         # 2. BUILD ASIAN RANGE & COLLECT FRACTALS (18:00 to 01:59)
         # ---------------------------------------------------------
@@ -95,21 +97,20 @@ class LondonFakeMove:
         # ---------------------------------------------------------
         if self.is_asian_range_locked and self.lo_sweep_type == "None" and (2 <= hour < 8):
             
-            # Check if London High swept ANY Asian Up Fractal
             swept_upper = any(row['High'] > fractal for fractal in self.asian_up_fractals)
-            
-            # Check if London Low swept ANY Asian Down Fractal
             swept_lower = any(row['Low'] < fractal for fractal in self.asian_down_fractals)
+            
+            # Calculate Ukraine Time for the log
+            ua_time = (index + self.ua_offset).strftime('%H:%M:%S')
             
             if swept_upper and swept_lower:
                 self.lo_sweep_type = "Both_Swept"
-                self.lo_sweep_time = index.time()
+                self.lo_sweep_time = ua_time
             elif swept_upper:
                 self.lo_sweep_type = "Upper_Sweep"
-                self.lo_sweep_time = index.time()
-                # Feed the Evaluator just in case you want Tear Sheet metrics
+                self.lo_sweep_time = ua_time
                 self.triggers.append({'Datetime': index, 'Direction': 'Short'})
             elif swept_lower:
                 self.lo_sweep_type = "Lower_Sweep"
-                self.lo_sweep_time = index.time()
+                self.lo_sweep_time = ua_time
                 self.triggers.append({'Datetime': index, 'Direction': 'Long'})
