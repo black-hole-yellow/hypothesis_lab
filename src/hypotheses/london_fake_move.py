@@ -52,18 +52,20 @@ class LondonFakeMove:
                 # Use UA_Time column if available, else fallback to standard date
                 log_date = row['UA_Time'].date() if 'UA_Time' in row else self.session_date
 
-                # Save to Audit Log
-                self.daily_logs.append({
-                    'Session_Date': log_date,
-                    'Trend_Bullish_Prob_%': self.session_trend_prob,
-                    'Asian_High': self.asian_high,
-                    'Asian_Low': self.asian_low,
-                    'Sweep_Type': self.lo_sweep_type,
-                    'Sweep_Time': self.lo_sweep_time,
-                    'Close_at_NY_End': day_close,
-                    'Day_Direction': actual_direction,
-                    'Hypothesis_Success': hypothesis_success
-                })
+                if self.lo_sweep_type != "None":
+                    
+                    # Save to Audit Log
+                    self.daily_logs.append({
+                        'Session_Date': log_date,
+                        'Trend_Bullish_Prob_%': self.session_trend_prob,
+                        'Asian_High': self.asian_high,
+                        'Asian_Low': self.asian_low,
+                        'Sweep_Type': self.lo_sweep_type,
+                        'Sweep_Time': self.lo_sweep_time,
+                        'Close_at_NY_End': day_close,
+                        'Day_Direction': actual_direction,
+                        'Hypothesis_Success': hypothesis_success
+                    })
 
             # --- RESET EVERYTHING FOR THE NEW SESSION ---
             self.session_date = (index + pd.Timedelta(days=1)).date()
