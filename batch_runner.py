@@ -74,23 +74,24 @@ def process_pending_hypotheses():
             continue
 
         h = metrics['Optimal_Hold_Hours']
-        win_rate = metrics.get(f'Hit_Ratio_{h}H')
-        wins = metrics.get('Best_Win_Count')
-        losses = metrics.get('Best_Loss_Count')
+        win_rate = metrics.get(f'Hit_Ratio_{h}H', 0)
+        wins = metrics.get('Best_Win_Count', 0)
+        losses = metrics.get('Best_Loss_Count', 0)
+        
+        # Ensure we grab the T-Stat securely for the specific horizon
+        t_stat = metrics.get(f'T_Stat_{h}H', 0.0)
 
         print(f"=========================================")
         print(f"  TEAR SHEET: {hypothesis.name}")
         print(f"=========================================")
-        print(f"  Frequency             : {metrics['Frequency']}")
+        print(f"  Frequency             : {metrics.get('Frequency', 0)}")
         print(f"  Optimal Horizon       : {h} Hours")
-        print(f"  Best IC ({h}H)        : {metrics.get(f'IC_{h}H')}")
-        print(f"  Best T-Stat ({h}H)    : {metrics.get(f'T_Stat_{h}H')}")
-        print(f"  Win Rate:             : {win_rate}%")
-        print(f"  Best T-Stat ({h}H)    : {metrics.get(f'T_Stat_{h}H')}")
+        print(f"  Best IC ({h}H)        : {metrics.get(f'IC_{h}H', 0)}")
+        print(f"  Win Rate ({h}H)       : {win_rate}% ({wins}W / {losses}L)")
+        print(f"  Best T-Stat ({h}H)    : {t_stat}")
         print(f"=========================================")
 
-        t_stat = metrics.get('Max_T_Stat', 0.0)
-        
+        # Use the explicit horizon T-Stat for the production check
         if t_stat >= 2.0:
             print("✅ PASSED: Promoted to PRODUCTION.")
             shutil.move(file_path, os.path.join(PRODUCTION_DIR, filename))
