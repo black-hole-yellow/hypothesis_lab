@@ -52,6 +52,11 @@ def process_pending_hypotheses():
             timeframe=timeframe
         )
 
+        # 2. Actually load the data into memory!
+        if not engine.prepare_data():
+            print(f"❌ Failed to load data. Moving {filename} to REVIEW.")
+            shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
+            continue
 
         hypothesis = GenericJSONHypothesis(config=config)
         engine.run_hypothesis(hypothesis)
