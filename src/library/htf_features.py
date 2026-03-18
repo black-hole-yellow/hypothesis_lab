@@ -536,10 +536,11 @@ def add_weekly_floor_context(df: pd.DataFrame) -> pd.DataFrame:
     
     # 2. Match Fractal Direction with Weekly Swing
     # Bullish: Weekly is Bullish AND we print a Bullish Fractal in London
-    df['LDN_Weekly_Bull_Floor'] = is_london & (df['1W_Swing_Bullish'] == 1) & (df['Is_Bull_Fractal'] == 1)
+    # Bullish: Weekly is Bullish AND we print a Fractal Low (Support) in London
+    df['LDN_Weekly_Bull_Floor'] = is_london & (df['1W_Swing_Bullish'] == 1) & (df['Confirmed_Fractal_Low'] == 1)
     
-    # Bearish: Weekly is Bearish AND we print a Bearish Fractal in London
-    df['LDN_Weekly_Bear_Floor'] = is_london & (df['1W_Swing_Bearish'] == 1) & (df['Is_Bear_Fractal'] == 1)
+    # Bearish: Weekly is Bearish AND we print a Fractal High (Resistance) in London
+    df['LDN_Weekly_Bear_Floor'] = is_london & (df['1W_Swing_Bearish'] == 1) & (df['Confirmed_Fractal_High'] == 1)
     
     # 3. Ensure one trigger per day
     df['Date'] = df.index.date

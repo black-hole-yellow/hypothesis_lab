@@ -100,6 +100,10 @@ class LabEngine:
             self.df = add_ny_expansion_context(self.df)        # Needs Asian High/Low
             self.df = add_asian_sr_alignment_context(self.df, max_dist_pips=15) # Needs Asian + SR
             self.df = add_fvg_sr_confluence_context(self.df, max_dist_pips=150) # Needs FVG + SR
+
+            fractal_cols = [c for c in self.df.columns if 'fractal' in c.lower() or 'bull' in c.lower()]
+            print(f"AVAILABLE FRACTAL COLUMNS: {fractal_cols}")
+            
             self.df = add_weekly_floor_context(self.df)        # Needs 1W Swing + Fractals
             
 
