@@ -529,27 +529,35 @@ def add_asian_sr_alignment_context(df: pd.DataFrame, max_dist_pips: int = 15) ->
 def add_weekly_floor_context(df: pd.DataFrame) -> pd.DataFrame:
     """
     Detects if a London Fractal aligns with the Weekly Swing direction.
-    Requires add_1w_swing_context and add_1d_fvg_fractal_context (for fractals).
+    Uses an expanded time window (09:00 - 14:00) to account for n=2 confirmation lag.
     """
-    # 1. Isolate London Session Fractals (09:00 - 12:00)
-    is_london = (df['UA_Hour'] >= 9) & (df['UA_Hour'] <= 12)
+    # 1. Time Window
+    is_london_eval = (df['UA_Hour'] >= 9) & (df['UA_Hour'] <= 14)
     
-    # 2. Match Fractal Direction with Weekly Swing
-    # Bullish: Weekly is Bullish AND we print a Bullish Fractal in London
-    # Bullish: Weekly is Bullish AND we print a Fractal Low (Support) in London
-    df['LDN_Weekly_Bull_Floor'] = is_london & (df['1W_Swing_Bullish'] == 1) & (df['Confirmed_Fractal_Low'] == 1)
+    # 2. Extract Data Safely (Converting to boolean to prevent 1/0 matching errors)
+    bull_swing = df['1W_Swing_Bullish'].fillna(0) == 1
+    bear_swing = df['1W_Swing_Bearish'].fillna(0) == 1
     
-    # Bearish: Weekly is Bearish AND we print a Fractal High (Resistance) in London
-    df['LDN_Weekly_Bear_Floor'] = is_london & (df['1W_Swing_Bearish'] == 1) & (df['Confirmed_Fractal_High'] == 1)
+    fractal_low = df['Confirmed_Fractal_Low'].fillna(0) == 1
+    fractal_high = df['Confirmed_Fractal_High'].fillna(0) == 1
     
-    # 3. Ensure one trigger per day
+    # 3. Match Logic: Bullish Swing + Fractal Low (Support)
+    df['LDN_Weekly_Bull_Floor'] = is_london_eval & bull_swing & fractal_low
+    
+    # Match Logic: Bearish Swing + Fractal High (Resistance)
+    df['LDN_Weekly_Bear_Floor'] = is_london_eval & bear_swing & fractal_high
+    
+    # 4. Ensure strictly ONE trigger per day (The Bulletproof Fix)
     df['Date'] = df.index.date
     df['Floor_Trigger_Count'] = (df['LDN_Weekly_Bull_Floor'] | df['LDN_Weekly_Bear_Floor']).groupby(df['Date']).cumsum()
     
+    # 5. Final Engine Output Columns
     df['First_LDN_Weekly_Bull'] = (df['LDN_Weekly_Bull_Floor'] & (df['Floor_Trigger_Count'] == 1)).astype(int)
     df['First_LDN_Weekly_Bear'] = (df['LDN_Weekly_Bear_Floor'] & (df['Floor_Trigger_Count'] == 1)).astype(int)
     
-    df.drop(columns=['Date', 'Floor_Trigger_Count'], inplace=True)
+    # Clean up intermediate data
+    df.drop(columns=['Date', 'Floor_Trigger_Count', 'LDN_Weekly_Bull_Floor', 'LDN_Weekly_Bear_Floor'], inplace=True)
+    
     return df
 
 def add_1d_fvg_fractal_context(df: pd.DataFrame, n: int = 2) -> pd.DataFrame:
