@@ -21,16 +21,21 @@ class LabEngine:
     def prepare_data(self):
         print(f"[1/3] Loading data from {self.data_file}...")
         try:
-            # --- NEW: Support for Institutional Parquet Data ---
+            # 1. Load into a temporary local variable
             if self.data_file.endswith('.parquet'):
-                self.df = pd.read_parquet(self.data_file)
+                temp_df = pd.read_parquet(self.data_file)
             else:
-                # Fallback for old CSVs just in case
-                self.df = pd.read_csv(self.data_file)
-                self.df['Datetime'] = pd.to_datetime(self.df['Datetime'])
-                self.df.set_index('Datetime', inplace=True)
+                temp_df = pd.read_csv(self.data_file)
+                temp_df['Datetime'] = pd.to_datetime(temp_df['Datetime'])
+                temp_df.set_index('Datetime', inplace=True)
 
-            # Build DNA
+            # 2. Filter dates securely
+            temp_df = temp_df.loc[self.start_date:self.end_date].copy()
+
+            # 3. Assign the clean, filtered data to the engine
+            self.df = temp_df
+
+            # --- FEATURE ENGINEERING ---
             df = add_log_returns(df)
             df = add_atr(df, lookback=14)
             df = add_volatility_ratio(df, short_lookback=14, long_lookback=100)
@@ -38,12 +43,8 @@ class LabEngine:
             df = add_price_zscore(df, lookback=50)
             df = add_shannon_entropy(df, lookback=50)
             df = add_williams_fractals(df, timeframe=self.timeframe, n=2)
-            
-            print("      -> Calculating Hurst Exponent...")
             df = add_hurst_exponent(df, lookback=100)
-            print("      -> Training HMM for Volatility Regimes...")
             df = add_hmm_volatility_regime(df)
-
             df = add_htf_trend_probability(df, htf='4h', lookback=60) 
             
             df.dropna(inplace=True)
