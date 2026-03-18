@@ -27,15 +27,27 @@ class SignalParser:
         """Evaluates a single JSON rule against the current candle."""
         feature_value = row.get(rule.get("feature"))
         
-        # If the feature doesn't exist in the data, the rule fails safely
+        # If the base feature doesn't exist or is NaN, the rule fails safely
         if feature_value is None or pd.isna(feature_value):
             return False
             
-        target_value = self._parse_value(rule.get("value"))
         compare_function = self.ops.get(rule.get("operator"))
-        
         if not compare_function:
             return False
+
+        # --- THE UPGRADE: Dynamic Column vs. Column Comparison ---
+        target_col = rule.get("target_column")
+        
+        if target_col:
+            # We are comparing against another dynamic data column
+            target_value = row.get(target_col)
+            
+            # If the target column data is missing, fail safely
+            if target_value is None or pd.isna(target_value):
+                return False
+        else:
+            # Classic logic: Comparing against a static number or parameter
+            target_value = self._parse_value(rule.get("value"))
             
         return compare_function(feature_value, target_value)
 
