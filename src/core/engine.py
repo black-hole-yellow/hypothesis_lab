@@ -6,9 +6,9 @@ from src.core.evaluator import SignalEvaluator, save_hypothesis_results
 from src.library.features import (
     add_log_returns, add_atr, add_normalized_slope, add_price_zscore, 
     add_shannon_entropy, add_hurst_exponent, add_hmm_volatility_regime, 
-    add_volatility_ratio, add_volume_zscore, add_williams_fractals, add_volume_profile_features, add_volatility_zscore
+    add_volatility_ratio, add_volume_zscore, add_williams_fractals, add_volume_profile_features, add_volatility_zscore, add_confirmed_fractals
 )
-from src.library.htf_features import add_htf_trend_probability, add_fvg_order_flow_context,calculate_multi_tf_fvgs
+from src.library.htf_features import add_htf_trend_probability, add_fvg_order_flow_context,calculate_multi_tf_fvgs, add_fvg_order_flow_context, add_asian_sweep_context
 
 class LabEngine:
     def __init__(self, data_file: str, start_date: str, end_date: str, timeframe: str = "1h"):
@@ -61,6 +61,7 @@ class LabEngine:
             self.df = add_price_zscore(self.df, lookback=50)
             self.df = add_shannon_entropy(self.df, lookback=50)
             self.df = add_williams_fractals(self.df, timeframe=self.timeframe, n=2)
+            self.df = add_confirmed_fractals(self.df, n=2)
             self.df = add_htf_trend_probability(self.df, htf='4h', lookback=60) 
             self.df = add_volume_profile_features(self.df)
             self.df = add_hurst_exponent(self.df, lookback=100)
@@ -69,6 +70,7 @@ class LabEngine:
             self.df = add_volatility_zscore(self.df, lookback=20)
             self.df = calculate_multi_tf_fvgs(self.df)
             self.df = add_fvg_order_flow_context(self.df)
+            self.df = add_asian_sweep_context(self.df, max_dist_pips=15)
             
             self.df.dropna(inplace=True)
         

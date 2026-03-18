@@ -249,6 +249,48 @@ def get_confirmed_swings(weekly_df: pd.DataFrame, daily_df: pd.DataFrame, curren
         'Lows': final_lows
     }
 
+def add_asian_sweep_context(df: pd.DataFrame, max_dist_pips: int = 15) -> pd.DataFrame:
+    """
+    Calculates Asian Session Extremes and detects sweeps into 4H FVGs.
+    Requires calculate_multi_tf_fvgs to be run first.
+    """
+    PIP = 0.0001
+    tolerance = max_dist_pips * PIP
+    
+    # 1. Define Asian Session (00:00 to 08:00 Kyiv Time)
+    is_asia = (df['UA_Hour'] >= 0) & (df['UA_Hour'] <= 8)
+    
+    # 2. Get daily Asian High/Low
+    df['Date_Key'] = df.index.date
+    asia_stats = df[is_asia].groupby('Date_Key').agg({'High': 'max', 'Low': 'min'})
+    asia_stats.rename(columns={'High': 'Asia_High', 'Low': 'Asia_Low'}, inplace=True)
+    
+    # 3. Merge back to the main dataframe
+    df = df.join(asia_stats, on='Date_Key')
+    
+    # 4. Define the Setup: FVG must be "immediately outside" the Asian extreme
+    # Bullish: 4H FVG Top is just below the Asian Low
+    df['Bull_FVG_Below_AL'] = (df['FVG_4h_Type'] == 'BULL') & \
+                              (df['Asia_Low'] >= df['FVG_4h_Top']) & \
+                              ((df['Asia_Low'] - df['FVG_4h_Top']) <= tolerance)
+                              
+    # Bearish: 4H FVG Bottom is just above the Asian High
+    df['Bear_FVG_Above_AH'] = (df['FVG_4h_Type'] == 'BEAR') & \
+                              (df['Asia_High'] <= df['FVG_4h_Bottom']) & \
+                              ((df['FVG_4h_Bottom'] - df['Asia_High']) <= tolerance)
+                              
+    # 5. Detect the Sweep
+    # The sweep happens if the current candle breaks the Asian extreme AND enters the FVG
+    df['Swept_AL_Into_FVG'] = df['Bull_FVG_Below_AL'] & (df['Low'] < df['Asia_Low']) & (df['Low'] <= df['FVG_4h_Top'])
+    df['Swept_AH_Into_FVG'] = df['Bear_FVG_Above_AH'] & (df['High'] > df['Asia_High']) & (df['High'] >= df['FVG_4h_Bottom'])
+    
+    # Clean up and format
+    df.drop(columns=['Date_Key'], inplace=True)
+    df['Swept_AL_Into_FVG'] = df['Swept_AL_Into_FVG'].fillna(False).astype(int)
+    df['Swept_AH_Into_FVG'] = df['Swept_AH_Into_FVG'].fillna(False).astype(int)
+    
+    return df
+
 def add_fvg_order_flow_context(df: pd.DataFrame) -> pd.DataFrame:
     """
     Identifies if price is inside a 4H FVG and if a 1H Order Flow Flip occurred.

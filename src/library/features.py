@@ -240,6 +240,21 @@ def add_htf_trend(df: pd.DataFrame, htf: str = 'D', ema_period: int = 20) -> pd.
     
     return df
 
+def add_confirmed_fractals(df: pd.DataFrame, n: int = 2) -> pd.DataFrame:
+    """
+    Universally shifts fractals by 'n' periods to prevent lookahead bias.
+    Exposes the exact price of the confirmed peaks and valleys.
+    """
+    # Shift the boolean signal
+    df['Confirmed_Fractal_High'] = df['Fractal_High'].shift(n).fillna(False).astype(int)
+    df['Confirmed_Fractal_Low'] = df['Fractal_Low'].shift(n).fillna(False).astype(int)
+    
+    # Store the exact price of the peak/valley
+    df['Confirmed_Fractal_High_Price'] = df['High'].shift(n)
+    df['Confirmed_Fractal_Low_Price'] = df['Low'].shift(n)
+    
+    return df
+
 def add_volume_profile_features(df, session_start="00:00", session_end="08:00", bin_size_pips=5):
     """
     Calculates the Asian Session Volume Profile and identifies 
