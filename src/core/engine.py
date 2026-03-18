@@ -8,7 +8,7 @@ from src.library.features import (
     add_shannon_entropy, add_hurst_exponent, add_hmm_volatility_regime, 
     add_volatility_ratio, add_volume_zscore, add_williams_fractals, add_volume_profile_features, add_volatility_zscore
 )
-from src.library.htf_features import add_htf_trend_probability
+from src.library.htf_features import add_htf_trend_probability, add_fvg_order_flow_context,calculate_multi_tf_fvgs
 
 class LabEngine:
     def __init__(self, data_file: str, start_date: str, end_date: str, timeframe: str = "1h"):
@@ -66,10 +66,12 @@ class LabEngine:
             self.df = add_williams_fractals(self.df, timeframe=self.timeframe, n=2)
             self.df = add_htf_trend_probability(self.df, htf='4h', lookback=60) 
             self.df = add_volume_profile_features(self.df)
-            #self.df = add_hurst_exponent(self.df, lookback=100)
+            self.df = add_hurst_exponent(self.df, lookback=100)
             self.df = add_hmm_volatility_regime(self.df)
             self.df = add_volume_zscore(self.df, lookback=20)
             self.df = add_volatility_zscore(self.df, lookback=20)
+            self.df = calculate_multi_tf_fvgs(self.df)
+            self.df = add_fvg_order_flow_context(self.df)
             
             self.df.dropna(inplace=True)
             print(f"      -> DNA complete. Valid rows remaining: {len(self.df)}")

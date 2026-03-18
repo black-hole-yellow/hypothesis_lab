@@ -249,6 +249,46 @@ def get_confirmed_swings(weekly_df: pd.DataFrame, daily_df: pd.DataFrame, curren
         'Lows': final_lows
     }
 
+def add_fvg_order_flow_context(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Identifies if price is inside a 4H FVG and if a 1H Order Flow Flip occurred.
+    Requires calculate_multi_tf_fvgs and add_volume_zscore to be run first.
+    """
+    print("     -> Calculating 4H FVG and 1H Order Flow dynamics...")
+    
+    # --- 1. FVG Zone Detection ---
+    # Bullish FVG: Price dips into the zone, but hasn't closed below it
+    df['In_4h_Bull_FVG'] = (df['FVG_4h_Type'] == 'BULL') & \
+                           (df['Low'] <= df['FVG_4h_Top']) & \
+                           (df['Close'] >= df['FVG_4h_Bottom'])
+                           
+    # Bearish FVG: Price spikes into the zone, but hasn't closed above it
+    df['In_4h_Bear_FVG'] = (df['FVG_4h_Type'] == 'BEAR') & \
+                           (df['High'] >= df['FVG_4h_Bottom']) & \
+                           (df['Close'] <= df['FVG_4h_Top'])
+
+    # --- 2. 1H Order Flow Flip ---
+    # Prev candle was Red, Current is Green WITH decent volume
+    prev_bearish = df['Close'].shift(1) < df['Open'].shift(1)
+    curr_bullish = df['Close'] > df['Open']
+    vol_expansion = df['Volume_ZScore'] > 0.5 
+    
+    df['1h_Bullish_Flip'] = prev_bearish & curr_bullish & vol_expansion
+    
+    # Prev candle was Green, Current is Red WITH decent volume
+    prev_bullish = df['Close'].shift(1) > df['Open'].shift(1)
+    curr_bearish = df['Close'] < df['Open']
+    
+    df['1h_Bearish_Flip'] = prev_bullish & curr_bearish & vol_expansion
+
+    # Convert booleans to 1/0 so the JSON parser can easily read them
+    df['In_4h_Bull_FVG'] = df['In_4h_Bull_FVG'].astype(int)
+    df['In_4h_Bear_FVG'] = df['In_4h_Bear_FVG'].astype(int)
+    df['1h_Bullish_Flip'] = df['1h_Bullish_Flip'].astype(int)
+    df['1h_Bearish_Flip'] = df['1h_Bearish_Flip'].astype(int)
+    
+    return df
+
 def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int = 60) -> pd.DataFrame:
     """
     Calculates a 0-100% Bullish Trend Probability using HTF Confluence.

@@ -1,0 +1,55 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_003_FVG_ORDER_FLOW",
+    "name": "4h FVG Order Flow Reversal",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Tests whether a 1h volume-backed order flow flip inside a 4h Fair Value Gap produces a high-probability mean-reverting bounce out of the zone."
+  },
+  "universe": {
+    "instruments": ["GBPUSD"],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "In_4h_Bull_FVG",
+      "In_4h_Bear_FVG",
+      "1h_Bullish_Flip",
+      "1h_Bearish_Flip"
+    ]
+  },
+  "parameters": {},
+  "logic": {
+    "filters": [],
+    "entry_rules": {
+      "long_trigger": [
+        {
+          "feature": "In_4h_Bull_FVG",
+          "operator": "==",
+          "value": 1
+        },
+        {
+          "feature": "1h_Bullish_Flip",
+          "operator": "==",
+          "value": 1
+        }
+      ],
+      "short_trigger": [
+        {
+          "feature": "In_4h_Bear_FVG",
+          "operator": "==",
+          "value": 1
+        },
+        {
+          "feature": "1h_Bearish_Flip",
+          "operator": "==",
+          "value": 1
+        }
+      ]
+    },
+    "exit_rules": {
+      "max_hold_time_hours": 12,
+      "stop_loss_atr_multiplier": 1.5
+    }
+  }
+}
