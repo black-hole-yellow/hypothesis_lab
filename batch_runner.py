@@ -83,7 +83,7 @@ def process_pending_hypotheses():
         print(f"  Best T-Stat ({h}H)    : {metrics.get(f'T_Stat_{h}H')}")
         print(f"=========================================")
 
-        t_stat = metrics.get('T_Stat', 0.0)
+        t_stat = metrics.get('Max_T_Stat', 0.0)
         
         if t_stat >= 2.0:
             print("✅ PASSED: Promoted to PRODUCTION.")

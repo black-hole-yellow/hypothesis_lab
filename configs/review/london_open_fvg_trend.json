@@ -1,0 +1,52 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_007_LO_FVG_TREND",
+    "name": "London Open FVG Trend Continuation",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Tests the hypothesis that if the London session opens with price trapped inside a Higher Timeframe (4H) Imbalance, institutional volume will push price directionally to clear the gap."
+  },
+  "universe": {
+    "instruments": ["GBPUSD"],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "In_4h_Bull_FVG",
+      "In_4h_Bear_FVG",
+      "UA_Hour"
+    ]
+  },
+  "parameters": {},
+  "logic": {
+    "filters": [
+      {
+        "comment": "Strictly trigger ONLY on the London Open candle",
+        "feature": "UA_Hour",
+        "operator": "==",
+        "value": 10
+      }
+    ],
+    "entry_rules": {
+      "long_trigger": [
+        {
+          "comment": "Price opens the session inside a Bullish 4H FVG",
+          "feature": "In_4h_Bull_FVG",
+          "operator": "==",
+          "value": 1
+        }
+      ],
+      "short_trigger": [
+        {
+          "comment": "Price opens the session inside a Bearish 4H FVG",
+          "feature": "In_4h_Bear_FVG",
+          "operator": "==",
+          "value": 1
+        }
+      ]
+    },
+    "exit_rules": {
+      "max_hold_time_hours": 8
+    }
+  }
+}
