@@ -5,13 +5,14 @@ from src.core.parser import SignalParser
 class GenericJSONHypothesis(BaseHypothesis):
     def __init__(self, config: dict):
         name = config.get("metadata", {}).get("name", "Unnamed_Generated_Hypothesis")
-        # Ensure it inherits properly
         super().__init__(name=name, config=config)
         
         self.parser = SignalParser(self.config.get("parameters", {}))
         self.logic = self.config.get("logic", {})
-        self.entry_rules = self.logic.get("entry_rules", {})
+        
+        # --- NEW: Store the filters from the JSON ---
         self.filters = self.logic.get("filters", [])
+        self.entry_rules = self.logic.get("entry_rules", {})
 
     def evaluate_row(self, row: pd.Series, index: pd.Timestamp):
         """
@@ -27,7 +28,7 @@ class GenericJSONHypothesis(BaseHypothesis):
             ua_time = str(index) 
         
         if self.filters and not self.parser.check_conditions(row, self.filters):
-            return 
+            return
     
         # Extract the exact probability calculated by your DNA library
         trend_prob = row.get('HTF_Bullish_Prob', 'N/A')

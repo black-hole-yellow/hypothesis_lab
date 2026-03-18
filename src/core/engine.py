@@ -20,6 +20,8 @@ class LabEngine:
 
     def prepare_data(self):
         print(f"[1/3] Loading data from {self.data_file}...")
+
+
         try:
             # 1. Load into a temporary local variable
             if self.data_file.endswith('.parquet'):
@@ -43,6 +45,10 @@ class LabEngine:
 
             # 4. Assign the clean, filtered data to the engine
             self.df = temp_df
+
+            if self.df.index.tz is None:
+                # If naive (CSV), assume UTC before converting to Kyiv
+                self.df.index = self.df.index.tz_localize('UTC')
             
             self.df['UA_Hour'] = self.df.index.tz_convert('Europe/Kyiv').hour
 

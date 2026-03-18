@@ -21,8 +21,8 @@
   },
   "parameters": {
     "london_open_hour_eet": 10,
-    "min_vol_zscore": 1.0,
-    "min_price_zscore": 1.0,
+    "min_vol_zscore": 0.5,
+    "min_price_zscore": 0.5,
     "reversion_window_hours": 4
   },
   "logic": {
