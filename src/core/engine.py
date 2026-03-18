@@ -6,7 +6,7 @@ from src.core.evaluator import SignalEvaluator, save_hypothesis_results
 from src.library.features import (
     add_log_returns, add_atr, add_normalized_slope, add_price_zscore, 
     add_shannon_entropy, add_hurst_exponent, add_hmm_volatility_regime, 
-    add_volatility_ratio, add_williams_fractals
+    add_volatility_ratio, add_volume_zscore, add_williams_fractals, add_volume_profile_features, add_volatility_zscore
 )
 from src.library.htf_features import add_htf_trend_probability
 
@@ -45,7 +45,6 @@ class LabEngine:
             self.df = temp_df
 
             # --- FEATURE ENGINEERING ---
-            # Fixed: Using self.df instead of the undefined 'df' variable
             self.df = add_log_returns(self.df)
             self.df = add_atr(self.df, lookback=14)
             self.df = add_volatility_ratio(self.df, short_lookback=14, long_lookback=100)
@@ -53,9 +52,12 @@ class LabEngine:
             self.df = add_price_zscore(self.df, lookback=50)
             self.df = add_shannon_entropy(self.df, lookback=50)
             self.df = add_williams_fractals(self.df, timeframe=self.timeframe, n=2)
-            self.df = add_hurst_exponent(self.df, lookback=100)
-            self.df = add_hmm_volatility_regime(self.df)
             self.df = add_htf_trend_probability(self.df, htf='4h', lookback=60) 
+            self.df = add_volume_profile_features(self.df)
+            #self.df = add_hurst_exponent(self.df, lookback=100)
+            self.df = add_hmm_volatility_regime(self.df)
+            self.df = add_volume_zscore(self.df, lookback=20)
+            self.df = add_volatility_zscore(self.df, lookback=20)
             
             self.df.dropna(inplace=True)
             print(f"      -> DNA complete. Valid rows remaining: {len(self.df)}")

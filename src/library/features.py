@@ -3,6 +3,38 @@ import numpy as np
 import os
 from hmmlearn.hmm import GaussianHMM
 
+def add_volatility_zscore(df: pd.DataFrame, lookback: int = 50) -> pd.DataFrame:
+    """
+    Calculates the Z-Score of the candle body height.
+    """
+    body = abs(df['Close'] - df['Open'])
+    rolling_mean = body.rolling(window=lookback).mean()
+    rolling_std = body.rolling(window=lookback).std()
+    
+    df['Body_ZScore'] = (body - rolling_mean) / rolling_std
+    return df
+
+def add_volume_zscore(df, lookback=20):
+    """Calculates how 'unusual' the current volume is compared to the recent past."""
+    print(f"     -> Calculating Volume Z-Score (lookback={lookback})...")
+    mean_vol = df['Volume'].rolling(window=lookback).mean()
+    std_vol = df['Volume'].rolling(window=lookback).std()
+    
+    df['Volume_ZScore'] = (df['Volume'] - mean_vol) / std_vol
+    return df
+
+def add_price_zscore(df: pd.DataFrame, lookback: int = 50) -> pd.DataFrame:
+    """
+    Z-Score of the Close Price. 
+    Useful for finding inflection points (e.g., Z > 2 or Z < -2 implies extreme mean deviation).
+    """
+    rolling_mean = df['Close'].rolling(window=lookback).mean()
+    rolling_std = df['Close'].rolling(window=lookback).std()
+    df['Price_ZScore'] = (df['Close'] - rolling_mean) / rolling_std
+    return df
+
+
+
 def add_williams_fractals(df: pd.DataFrame, timeframe: str, n: int = 2) -> pd.DataFrame:
     """
     Calculates N-period Williams Fractals.
@@ -17,17 +49,6 @@ def add_williams_fractals(df: pd.DataFrame, timeframe: str, n: int = 2) -> pd.Da
     df['Fractal_High'] = df['High'] == df['High'].rolling(window=2*n + 1, center=True).max()
     df['Fractal_Low'] = df['Low'] == df['Low'].rolling(window=2*n + 1, center=True).min()
     
-    return df
-
-def add_volatility_zscore(df: pd.DataFrame, lookback: int = 50) -> pd.DataFrame:
-    """
-    Calculates the Z-Score of the candle body height.
-    """
-    body = abs(df['Close'] - df['Open'])
-    rolling_mean = body.rolling(window=lookback).mean()
-    rolling_std = body.rolling(window=lookback).std()
-    
-    df['Body_ZScore'] = (body - rolling_mean) / rolling_std
     return df
 
 def add_normalized_slope(df: pd.DataFrame, lookback: int = 20, atr_lookback: int = 14) -> pd.DataFrame:
@@ -73,16 +94,6 @@ def add_atr(df: pd.DataFrame, lookback: int = 14) -> pd.DataFrame:
     low_close = abs(df['Low'] - df['Close'].shift(1))
     tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
     df['ATR'] = tr.rolling(window=lookback).mean()
-    return df
-
-def add_price_zscore(df: pd.DataFrame, lookback: int = 50) -> pd.DataFrame:
-    """
-    Z-Score of the Close Price. 
-    Useful for finding inflection points (e.g., Z > 2 or Z < -2 implies extreme mean deviation).
-    """
-    rolling_mean = df['Close'].rolling(window=lookback).mean()
-    rolling_std = df['Close'].rolling(window=lookback).std()
-    df['Price_ZScore'] = (df['Close'] - rolling_mean) / rolling_std
     return df
 
 def add_shannon_entropy(df: pd.DataFrame, lookback: int = 50, bins: int = 10) -> pd.DataFrame:

@@ -7,7 +7,7 @@
   },
   "universe": {
     "instruments": ["GBPUSD"],
-    "resolution": "1h",
+    "resolution": "15m",
     "timezone": "UTC"
   },
   "data_dependencies": {
