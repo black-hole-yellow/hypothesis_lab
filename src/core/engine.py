@@ -29,27 +29,36 @@ class LabEngine:
                 temp_df['Datetime'] = pd.to_datetime(temp_df['Datetime'])
                 temp_df.set_index('Datetime', inplace=True)
 
-            # 2. Filter dates securely
-            temp_df = temp_df.loc[self.start_date:self.end_date].copy()
+            # 2. Handle Timezones securely before slicing
+            start = pd.to_datetime(self.start_date)
+            end = pd.to_datetime(self.end_date)
+            
+            # If the data index has a timezone (like our Parquet), make start/end aware too!
+            if temp_df.index.tz is not None:
+                start = start.tz_localize(temp_df.index.tz)
+                end = end.tz_localize(temp_df.index.tz)
 
-            # 3. Assign the clean, filtered data to the engine
+            # 3. Filter dates securely
+            temp_df = temp_df.loc[start:end].copy()
+
+            # 4. Assign the clean, filtered data to the engine
             self.df = temp_df
 
             # --- FEATURE ENGINEERING ---
-            df = add_log_returns(df)
-            df = add_atr(df, lookback=14)
-            df = add_volatility_ratio(df, short_lookback=14, long_lookback=100)
-            df = add_normalized_slope(df, lookback=20, atr_lookback=14)
-            df = add_price_zscore(df, lookback=50)
-            df = add_shannon_entropy(df, lookback=50)
-            df = add_williams_fractals(df, timeframe=self.timeframe, n=2)
-            df = add_hurst_exponent(df, lookback=100)
-            df = add_hmm_volatility_regime(df)
-            df = add_htf_trend_probability(df, htf='4h', lookback=60) 
+            # Fixed: Using self.df instead of the undefined 'df' variable
+            self.df = add_log_returns(self.df)
+            self.df = add_atr(self.df, lookback=14)
+            self.df = add_volatility_ratio(self.df, short_lookback=14, long_lookback=100)
+            self.df = add_normalized_slope(self.df, lookback=20, atr_lookback=14)
+            self.df = add_price_zscore(self.df, lookback=50)
+            self.df = add_shannon_entropy(self.df, lookback=50)
+            self.df = add_williams_fractals(self.df, timeframe=self.timeframe, n=2)
+            self.df = add_hurst_exponent(self.df, lookback=100)
+            self.df = add_hmm_volatility_regime(self.df)
+            self.df = add_htf_trend_probability(self.df, htf='4h', lookback=60) 
             
-            df.dropna(inplace=True)
-            print(f"      -> DNA complete. Valid rows remaining: {len(df)}")
-            self.df = df
+            self.df.dropna(inplace=True)
+            print(f"      -> DNA complete. Valid rows remaining: {len(self.df)}")
         
         except Exception as e:
             print(f"❌ Error loading data: {e}")
