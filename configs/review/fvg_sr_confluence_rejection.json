@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_011_FVG_SR_CONFLUENCE",
+    "name": "1D FVG & Major S&R Overlap Rejection",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Tests if the overlapping confluence of a 1D FVG and a Major S&R level creates an impenetrable block of institutional limit orders, causing an immediate reversal on the first touch."
+  },
+  "universe": {
+    "instruments": ["GBPUSD"],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "First_Touch_Res_Zone",
+      "First_Touch_Sup_Zone"
+    ]
+  },
+  "parameters": {},
+  "logic": {
+    "filters": [],
+    "entry_rules": {
+      "long_trigger": [
+        {
+          "comment": "Price taps a Bullish 1D FVG that contains Major Support",
+          "feature": "First_Touch_Sup_Zone",
+          "operator": "==",
+          "value": 1
+        }
+      ],
+      "short_trigger": [
+        {
+          "comment": "Price taps a Bearish 1D FVG that contains Major Resistance",
+          "feature": "First_Touch_Res_Zone",
+          "operator": "==",
+          "value": 1
+        }
+      ]
+    },
+    "exit_rules": {
+      "max_hold_time_hours": 12
+    }
+  }
+}

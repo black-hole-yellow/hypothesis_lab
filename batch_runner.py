@@ -67,6 +67,12 @@ def process_pending_hypotheses():
         evaluator = SignalEvaluator(engine.df, hypothesis.triggers, hypothesis.name)
         metrics = evaluator.calculate_metrics()
         
+        if not metrics or 'Optimal_Hold_Hours' not in metrics:
+            print(f"⚠️  Hypothesis '{hypothesis.name}' generated 0 trades.")
+            print("   (Check your logic for 'Geometry Traps' or impossible conditions)")
+            shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
+            continue
+
         h = metrics['Optimal_Hold_Hours']
         win_rate = metrics.get(f'Hit_Ratio_{h}H')
         wins = metrics.get('Best_Win_Count')

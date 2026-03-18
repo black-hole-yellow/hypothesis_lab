@@ -330,6 +330,249 @@ def add_fvg_order_flow_context(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
+def add_weekly_swing_context(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculates the Weekly Trend (Swing) using a 168-hour lookback.
+    Returns 1 for Bullish (Price > SMA), -1 for Bearish.
+    """
+    # 168 hours = 1 Week of 1H data
+    lookback = 168
+    df['Weekly_SMA'] = df['Close'].rolling(window=lookback).mean()
+    
+    # Define Swing based on Price vs SMA
+    df['Weekly_Swing'] = 0
+    df.loc[df['Close'] > df['Weekly_SMA'], 'Weekly_Swing'] = 1
+    df.loc[df['Close'] < df['Weekly_SMA'], 'Weekly_Swing'] = -1
+    
+    return df
+
+def add_ny_sr_touch_context(df: pd.DataFrame, tolerance_pips: int = 10) -> pd.DataFrame:
+    """
+    Calculates Major S&R (20-Day Extremes) and detects the strictly FIRST touch 
+    during the New York session, guaranteed once per day.
+    """
+    PIP = 0.0001
+    tol = tolerance_pips * PIP
+    
+    # 1. Define Major S&R
+    df['Major_Resistance'] = df['High'].rolling(window=24*20).max().shift(1)
+    df['Major_Support'] = df['Low'].rolling(window=24*20).min().shift(1)
+    
+    # 2. Isolate NY Session
+    is_ny = (df['UA_Hour'] >= 15) & (df['UA_Hour'] <= 22)
+    
+    # 3. Detect Raw Touches
+    df['NY_Touch_Res'] = is_ny & (df['High'] >= (df['Major_Resistance'] - tol))
+    df['NY_Touch_Sup'] = is_ny & (df['Low'] <= (df['Major_Support'] + tol))
+    
+    # 4. THE BULLETPROOF FIX: Count touches per day
+    df['Date'] = df.index.date
+    df['Res_Daily_Touches'] = df.groupby('Date')['NY_Touch_Res'].cumsum()
+    df['Sup_Daily_Touches'] = df.groupby('Date')['NY_Touch_Sup'].cumsum()
+    
+    # 5. Trigger ONLY on the exact 1st touch of the day
+    df['NY_First_Touch_Res'] = df['NY_Touch_Res'] & (df['Res_Daily_Touches'] == 1)
+    df['NY_First_Touch_Sup'] = df['NY_Touch_Sup'] & (df['Sup_Daily_Touches'] == 1)
+    
+    # 6. Clean up
+    df.drop(columns=['Date', 'Res_Daily_Touches', 'Sup_Daily_Touches'], inplace=True)
+    df['NY_First_Touch_Res'] = df['NY_First_Touch_Res'].astype(int)
+    df['NY_First_Touch_Sup'] = df['NY_First_Touch_Sup'].astype(int)
+    
+    return df
+
+def add_ny_expansion_context(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Identifies if the NY session opened inside the Asian Range.
+    Requires add_asian_sweep_context to be run first.
+    """
+    # 1. Identify NY Open (15:00 Kyiv time)
+    # We use a ffill to carry the 15:00 price through the rest of the day
+    df['NY_Open_Price'] = df.where(df['UA_Hour'] == 15)['Open']
+    df['NY_Open_Price'] = df.groupby(df.index.date)['NY_Open_Price'].ffill()
+
+    # 2. Check if NY Open is inside Asian Range
+    # We use the Asia_High and Asia_Low calculated in add_asian_sweep_context
+    df['NY_Opened_In_Asia_Range'] = (df['NY_Open_Price'] < df['Asia_High']) & \
+                                     (df['NY_Open_Price'] > df['Asia_Low'])
+    
+    # 3. Detect the Sweep (Current High/Low breaks Asian Extreme during NY)
+    is_ny_session = (df['UA_Hour'] >= 15) & (df['UA_Hour'] <= 23)
+    
+    # Change the sweep detection to only trigger on the CROSS
+    # This checks if the CURRENT candle is below Asia_Low, but the PREVIOUS one was not.
+    df['NY_Sweep_Asia_Low'] = is_ny_session & \
+                            (df['Low'] < df['Asia_Low']) & \
+                            (df['Low'].shift(1) >= df['Asia_Low'].shift(1))
+
+    df['NY_Sweep_Asia_High'] = is_ny_session & \
+                            (df['High'] > df['Asia_High']) & \
+                            (df['High'].shift(1) <= df['Asia_High'].shift(1))
+
+    # Convert to 1/0 for the Parser
+    df['NY_Opened_In_Asia_Range'] = df['NY_Opened_In_Asia_Range'].fillna(False).astype(int)
+    df['NY_Sweep_Asia_High'] = df['NY_Sweep_Asia_High'].astype(int)
+    df['NY_Sweep_Asia_Low'] = df['NY_Sweep_Asia_Low'].astype(int)
+    
+    return df
+
+def add_1w_swing_context(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Determines the 1W HTF Swing direction based on the last broken weekly extreme.
+    Guaranteed zero lookahead bias and stateful tracking.
+    """
+    # 1. Define the 1-Week (120 trading hours) rolling extremes
+    # Shifted by 1 so the current candle is comparing against HISTORY
+    df['1W_High'] = df['High'].rolling(window=120).max().shift(1)
+    df['1W_Low'] = df['Low'].rolling(window=120).min().shift(1)
+
+    # 2. Track structural breaks (Did we close above the 1W High / below 1W Low?)
+    df['Broke_1W_High'] = df['Close'] > df['1W_High']
+    df['Broke_1W_Low'] = df['Close'] < df['1W_Low']
+
+    # 3. Create a stateful "Swing Signal" (1 for Bullish, -1 for Bearish)
+    df['Swing_Signal'] = 0
+    df.loc[df['Broke_1W_High'], 'Swing_Signal'] = 1
+    df.loc[df['Broke_1W_Low'], 'Swing_Signal'] = -1
+    
+    # Forward fill the state so it holds 'Bullish' until a 'Bearish' break occurs
+    df['1W_Swing_State'] = df['Swing_Signal'].replace(0, np.nan).ffill().fillna(0)
+
+    # 4. Expose clean binary features for the JSON Parser
+    df['1W_Swing_Bullish'] = (df['1W_Swing_State'] == 1).astype(int)
+    df['1W_Swing_Bearish'] = (df['1W_Swing_State'] == -1).astype(int)
+
+    # Clean up intermediate columns
+    df.drop(columns=['1W_High', '1W_Low', 'Broke_1W_High', 'Broke_1W_Low', 'Swing_Signal', '1W_Swing_State'], inplace=True)
+    
+    return df
+
+def add_fvg_sr_confluence_context(df: pd.DataFrame, max_dist_pips: int = 30) -> pd.DataFrame:
+    """
+    Detects when a 1D FVG forms immediately adjacent to a Major S&R level (Confluence).
+    Triggers on the strictly FIRST touch of this confluence zone per day.
+    """
+    PIP = 0.0001
+    dist = max_dist_pips * PIP
+
+    # 1. Corrected Geometry: Major Level is just outside the FVG, acting as a wall
+    # Res: Major Resistance is within 30 pips above the FVG Top
+    df['Res_Confluence_Zone'] = (df['FVG_1D_Type'] == 'BEAR') & \
+                                (df['Major_Resistance'] >= df['FVG_1D_Top']) & \
+                                ((df['Major_Resistance'] - df['FVG_1D_Top']) <= dist)
+
+    # Sup: Major Support is within 30 pips below the FVG Bottom
+    df['Sup_Confluence_Zone'] = (df['FVG_1D_Type'] == 'BULL') & \
+                                (df['Major_Support'] <= df['FVG_1D_Bottom']) & \
+                                ((df['FVG_1D_Bottom'] - df['Major_Support']) <= dist)
+
+    # 2. Detect Raw Touches (Price taps the FVG opening)
+    df['Touch_Res_Zone'] = df['Res_Confluence_Zone'] & (df['High'] >= df['FVG_1D_Bottom'])
+    df['Touch_Sup_Zone'] = df['Sup_Confluence_Zone'] & (df['Low'] <= df['FVG_1D_Top'])
+
+    # 3. The Bulletproof Cumsum Fix (One touch per day)
+    df['Date'] = df.index.date
+    df['Res_Zone_Touches'] = df.groupby('Date')['Touch_Res_Zone'].cumsum()
+    df['Sup_Zone_Touches'] = df.groupby('Date')['Touch_Sup_Zone'].cumsum()
+
+    df['First_Touch_Res_Zone'] = df['Touch_Res_Zone'] & (df['Res_Zone_Touches'] == 1)
+    df['First_Touch_Sup_Zone'] = df['Touch_Sup_Zone'] & (df['Sup_Zone_Touches'] == 1)
+
+    # 4. Clean up
+    df.drop(columns=['Date', 'Res_Zone_Touches', 'Sup_Zone_Touches'], inplace=True)
+    df['First_Touch_Res_Zone'] = df['First_Touch_Res_Zone'].astype(int)
+    df['First_Touch_Sup_Zone'] = df['First_Touch_Sup_Zone'].astype(int)
+
+    return df
+
+def add_asian_sr_alignment_context(df: pd.DataFrame, max_dist_pips: int = 15) -> pd.DataFrame:
+    """
+    Определяет слияние Азиатских экстремумов и Макро-уровней (S&R).
+    Фиксирует первый ложный пробой этой зоны после открытия Лондона.
+    Требует выполнения add_asian_sweep_context и add_ny_sr_touch_context до нее.
+    """
+    import numpy as np
+    PIP = 0.0001
+    dist = max_dist_pips * PIP
+
+    # 1. Проверяем "Идеальное совпадение" (Alignment)
+    # Азиатский Хай совпадает с Макро-Сопротивлением
+    df['Asia_Res_Aligned'] = (abs(df['Asia_High'] - df['Major_Resistance']) <= dist)
+    
+    # Азиатский Лоу совпадает с Макро-Поддержкой
+    df['Asia_Sup_Aligned'] = (abs(df['Asia_Low'] - df['Major_Support']) <= dist)
+
+    # 2. Ищем пробой (только в активные часы: Лондон и Нью-Йорк, с 9:00 до 21:00)
+    is_active_session = (df['UA_Hour'] >= 9) & (df['UA_Hour'] <= 21)
+
+    # Цена пробивает сдвоенный Хай вверх (готовимся шортить)
+    df['Break_Aligned_Res'] = is_active_session & df['Asia_Res_Aligned'] & (df['High'] > df['Asia_High'])
+    
+    # Цена пробивает сдвоенный Лоу вниз (готовимся лонговать)
+    df['Break_Aligned_Sup'] = is_active_session & df['Asia_Sup_Aligned'] & (df['Low'] < df['Asia_Low'])
+
+    # 3. Бронебойный фикс: берем только ПЕРВЫЙ пробой за день
+    df['Date'] = df.index.date
+    df['Res_Break_Count'] = df.groupby('Date')['Break_Aligned_Res'].cumsum()
+    df['Sup_Break_Count'] = df.groupby('Date')['Break_Aligned_Sup'].cumsum()
+
+    df['First_False_Break_Res'] = df['Break_Aligned_Res'] & (df['Res_Break_Count'] == 1)
+    df['First_False_Break_Sup'] = df['Break_Aligned_Sup'] & (df['Sup_Break_Count'] == 1)
+
+    # 4. Очистка
+    df.drop(columns=['Date', 'Res_Break_Count', 'Sup_Break_Count'], inplace=True)
+    df['First_False_Break_Res'] = df['First_False_Break_Res'].fillna(False).astype(int)
+    df['First_False_Break_Sup'] = df['First_False_Break_Sup'].fillna(False).astype(int)
+
+    return df
+
+def add_weekly_floor_context(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Detects if a London Fractal aligns with the Weekly Swing direction.
+    Requires add_1w_swing_context and add_1d_fvg_fractal_context (for fractals).
+    """
+    # 1. Isolate London Session Fractals (09:00 - 12:00)
+    is_london = (df['UA_Hour'] >= 9) & (df['UA_Hour'] <= 12)
+    
+    # 2. Match Fractal Direction with Weekly Swing
+    # Bullish: Weekly is Bullish AND we print a Bullish Fractal in London
+    df['LDN_Weekly_Bull_Floor'] = is_london & (df['1W_Swing_Bullish'] == 1) & (df['Is_Bull_Fractal'] == 1)
+    
+    # Bearish: Weekly is Bearish AND we print a Bearish Fractal in London
+    df['LDN_Weekly_Bear_Floor'] = is_london & (df['1W_Swing_Bearish'] == 1) & (df['Is_Bear_Fractal'] == 1)
+    
+    # 3. Ensure one trigger per day
+    df['Date'] = df.index.date
+    df['Floor_Trigger_Count'] = (df['LDN_Weekly_Bull_Floor'] | df['LDN_Weekly_Bear_Floor']).groupby(df['Date']).cumsum()
+    
+    df['First_LDN_Weekly_Bull'] = (df['LDN_Weekly_Bull_Floor'] & (df['Floor_Trigger_Count'] == 1)).astype(int)
+    df['First_LDN_Weekly_Bear'] = (df['LDN_Weekly_Bear_Floor'] & (df['Floor_Trigger_Count'] == 1)).astype(int)
+    
+    df.drop(columns=['Date', 'Floor_Trigger_Count'], inplace=True)
+    return df
+
+def add_1d_fvg_fractal_context(df: pd.DataFrame, n: int = 2) -> pd.DataFrame:
+    """
+    Detects standard fractals (n-period highs/lows).
+    """
+    # Detect Bullish Fractal (Low of candle is lower than 'n' candles before and after)
+    df['Is_Bull_Fractal'] = (df['Low'] < df['Low'].shift(1)) & \
+                            (df['Low'] < df['Low'].shift(2)) & \
+                            (df['Low'] < df['Low'].shift(-1)) & \
+                            (df['Low'] < df['Low'].shift(-2))
+                            
+    # Detect Bearish Fractal (High of candle is higher than 'n' candles before and after)
+    df['Is_Bear_Fractal'] = (df['High'] > df['High'].shift(1)) & \
+                            (df['High'] > df['High'].shift(2)) & \
+                            (df['High'] > df['High'].shift(-1)) & \
+                            (df['High'] > df['High'].shift(-2))
+
+    # Convert to 1/0 for the engine
+    df['Is_Bull_Fractal'] = df['Is_Bull_Fractal'].fillna(False).astype(int)
+    df['Is_Bear_Fractal'] = df['Is_Bear_Fractal'].fillna(False).astype(int)
+    
+    return df
+
 def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int = 60) -> pd.DataFrame:
     """
     Calculates a 0-100% Bullish Trend Probability using HTF Confluence.

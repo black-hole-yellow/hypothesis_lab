@@ -8,7 +8,17 @@ from src.library.features import (
     add_shannon_entropy, add_hurst_exponent, add_hmm_volatility_regime, 
     add_volatility_ratio, add_volume_zscore, add_williams_fractals, add_volume_profile_features, add_volatility_zscore, add_confirmed_fractals
 )
-from src.library.htf_features import add_htf_trend_probability, add_fvg_order_flow_context,calculate_multi_tf_fvgs, add_fvg_order_flow_context, add_asian_sweep_context
+from src.library.htf_features import (add_1w_swing_context, add_asian_sr_alignment_context, 
+                                      add_fvg_sr_confluence_context, 
+                                      add_htf_trend_probability, 
+                                      add_fvg_order_flow_context, 
+                                      add_ny_sr_touch_context, add_weekly_floor_context,calculate_multi_tf_fvgs, 
+                                      add_fvg_order_flow_context, 
+                                      add_asian_sweep_context, 
+                                      add_asian_sweep_context,
+                                      add_ny_expansion_context, 
+                                      add_weekly_swing_context,
+)
 
 class LabEngine:
     def __init__(self, data_file: str, start_date: str, end_date: str, timeframe: str = "1h"):
@@ -53,25 +63,46 @@ class LabEngine:
                 print("     ! Warning: Zero volume detected. Simulating Tick Volume...")
                 self.df['Volume'] = abs(self.df['High'] - self.df['Low']) * 100000
 
-            # --- FEATURE ENGINEERING ---
+            # --- PHASE 1: FUNDAMENTAL MATH & VOLATILITY ---
+            # These must come first as they provide the raw "physics" for everything else.
             self.df = add_log_returns(self.df)
             self.df = add_atr(self.df, lookback=14)
-            self.df = add_volatility_ratio(self.df, short_lookback=14, long_lookback=100)
-            self.df = add_normalized_slope(self.df, lookback=20, atr_lookback=14)
-            self.df = add_price_zscore(self.df, lookback=50)
-            self.df = add_shannon_entropy(self.df, lookback=50)
-            self.df = add_williams_fractals(self.df, timeframe=self.timeframe, n=2)
-            self.df = add_confirmed_fractals(self.df, n=2)
-            self.df = add_htf_trend_probability(self.df, htf='4h', lookback=60) 
-            self.df = add_volume_profile_features(self.df)
-            self.df = add_hurst_exponent(self.df, lookback=100)
-            self.df = add_hmm_volatility_regime(self.df)
             self.df = add_volume_zscore(self.df, lookback=20)
             self.df = add_volatility_zscore(self.df, lookback=20)
-            self.df = calculate_multi_tf_fvgs(self.df)
-            self.df = add_fvg_order_flow_context(self.df)
-            self.df = add_asian_sweep_context(self.df, max_dist_pips=15)
+            self.df = add_volatility_ratio(self.df, short_lookback=14, long_lookback=100)
+            self.df = add_price_zscore(self.df, lookback=50)
+
+            # --- PHASE 2: ADVANCED STATISTICAL STATES ---
+            # Descriptors of the current market regime.
+            self.df = add_normalized_slope(self.df, lookback=20, atr_lookback=14)
+            self.df = add_shannon_entropy(self.df, lookback=50)
+            self.df = add_hurst_exponent(self.df, lookback=100)
+            self.df = add_hmm_volatility_regime(self.df)
+            self.df = add_volume_profile_features(self.df)
+
+            # --- PHASE 3: BASE STRUCTURE (The "Providers") ---
+            # These generate the columns that the more complex "Strategy" features need.
+            self.df = calculate_multi_tf_fvgs(self.df)         # Provides FVG zones
+            self.df = add_1w_swing_context(self.df)            # Provides 1W Swing Direction
+            self.df = add_weekly_swing_context(self.df)         # (Redundant, but kept if distinct)
+            self.df = add_williams_fractals(self.df, timeframe=self.timeframe, n=2)
+            self.df = add_confirmed_fractals(self.df, n=2)     # Provides Bull/Bear Fractals
+            self.df = add_htf_trend_probability(self.df, htf='4h', lookback=60) 
+
+            # --- PHASE 4: CONTEXTUAL & SESSION-BASED (The "Consumers") ---
+            # These depend on the math and structure calculated in Phases 1-3.
+            self.df = add_fvg_order_flow_context(self.df)      # Needs FVG
+            self.df = add_asian_sweep_context(self.df, max_dist_pips=15) # Provides Asian High/Low
+            self.df = add_ny_sr_touch_context(self.df)         # Provides Major Resistance/Support
+
+            # --- PHASE 5: MULTI-FACTOR CONFLUENCE ---
+            # The most complex logic that requires both Session Levels AND Structural States.
+            self.df = add_ny_expansion_context(self.df)        # Needs Asian High/Low
+            self.df = add_asian_sr_alignment_context(self.df, max_dist_pips=15) # Needs Asian + SR
+            self.df = add_fvg_sr_confluence_context(self.df, max_dist_pips=150) # Needs FVG + SR
+            self.df = add_weekly_floor_context(self.df)        # Needs 1W Swing + Fractals
             
+
             self.df.dropna(inplace=True)
         
         except Exception as e:
