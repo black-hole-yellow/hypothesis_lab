@@ -254,7 +254,6 @@ def add_fvg_order_flow_context(df: pd.DataFrame) -> pd.DataFrame:
     Identifies if price is inside a 4H FVG and if a 1H Order Flow Flip occurred.
     Requires calculate_multi_tf_fvgs and add_volume_zscore to be run first.
     """
-    print("     -> Calculating 4H FVG and 1H Order Flow dynamics...")
     
     # --- 1. FVG Zone Detection ---
     # Bullish FVG: Price dips into the zone, but hasn't closed below it

@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "hypothesis_id": "TEST_001_MOMENTUM",
+    "name": "Momentum Persistence Test",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Simple test to verify SignalEvaluator. Measures if the current candle direction predicts future returns."
+  },
+  "universe": {
+    "instruments": ["GBPUSD"],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": ["Log_Return", "UA_Hour"]
+  },
+  "parameters": {
+    "min_return": 0.0001
+  },
+  "logic": {
+    "filters": [
+      { "feature": "UA_Hour", "operator": ">=", "value": 10 },
+      { "feature": "UA_Hour", "operator": "<=", "value": 20 }
+    ],
+    "entry_rules": {
+      "long_trigger": [
+        { "feature": "Log_Return", "operator": ">", "value": "param:min_return" }
+      ],
+      "short_trigger": [
+        { "feature": "Log_Return", "operator": "<", "value": "-param:min_return" }
+      ]
+    },
+    "exit_rules": {
+      "max_hold_time_hours": 24
+    }
+  }
+}

@@ -37,11 +37,10 @@ def process_pending_hypotheses():
         timeframe = config.get("universe", {}).get("resolution", "1h")
         instruments = config.get("universe", {}).get("instruments", ["GBPUSD"])
         symbol = instruments[0] if instruments else "GBPUSD"
-
         processed_data_path = f"data/processed/{symbol}_{timeframe}.parquet"
 
         if not os.path.exists(processed_data_path):
-            print(f"❌ Missing processed data: {processed_data_path}. Run DataPolisher first!")
+            print(f"❌ Missing processed data: {processed_data_path}")
             shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
             continue
 
@@ -54,7 +53,6 @@ def process_pending_hypotheses():
 
         # 2. Actually load the data into memory!
         if not engine.prepare_data():
-            print(f"❌ Failed to load data. Moving {filename} to REVIEW.")
             shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
             continue
 
@@ -62,27 +60,37 @@ def process_pending_hypotheses():
         engine.run_hypothesis(hypothesis)
 
         if len(hypothesis.triggers) == 0:
-            print(f"⚠️ No trades triggered. Moving {filename} to REVIEW.")
+            print("⚠️ No trades triggered. Moving to REVIEW.")
             shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
             continue
 
         evaluator = SignalEvaluator(engine.df, hypothesis.triggers, hypothesis.name)
         metrics = evaluator.calculate_metrics()
         
-        t_stat = metrics.get('T_Stat', 0.0)
-        win_rate = metrics.get('Win_Rate', 0.0)
+        h = metrics['Optimal_Hold_Hours']
+        win_rate = metrics.get(f'Hit_Ratio_{h}H')
+        wins = metrics.get('Best_Win_Count')
+        losses = metrics.get('Best_Loss_Count')
 
-        # THE PRODUCTION HANDOFF DECISION
+        print(f"=========================================")
+        print(f"  TEAR SHEET: {hypothesis.name}")
+        print(f"=========================================")
+        print(f"  Frequency             : {metrics['Frequency']}")
+        print(f"  Optimal Horizon       : {h} Hours")
+        print(f"  Best IC ({h}H)        : {metrics.get(f'IC_{h}H')}")
+        print(f"  Best T-Stat ({h}H)    : {metrics.get(f'T_Stat_{h}H')}")
+        print(f"  Win Rate:             : {win_rate}%")
+        print(f"  Best T-Stat ({h}H)    : {metrics.get(f'T_Stat_{h}H')}")
+        print(f"=========================================")
+
+        t_stat = metrics.get('T_Stat', 0.0)
+        
         if t_stat >= 2.0:
-            print(f"✅ PASSED! T-Stat: {t_stat:.2f} | Win Rate: {win_rate:.2f}%")
-            print(f"🚀 Promoting {filename} to PRODUCTION.")
+            print("✅ PASSED: Promoted to PRODUCTION.")
             shutil.move(file_path, os.path.join(PRODUCTION_DIR, filename))
         else:
-            print(f"❌ FAILED. T-Stat: {t_stat:.2f} (Required: 2.0).")
-            print(f"🔍 Moving {filename} to REVIEW for manual analysis.")
+            print("❌ FAILED: Moved to REVIEW.")
             shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
-            
-        print("-" * 40)
 
 if __name__ == "__main__":
     process_pending_hypotheses()

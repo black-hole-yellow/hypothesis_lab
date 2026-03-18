@@ -19,9 +19,6 @@ class LabEngine:
         self.df = None
 
     def prepare_data(self):
-        print(f"[1/3] Loading data from {self.data_file}...")
-
-
         try:
             # 1. Load into a temporary local variable
             if self.data_file.endswith('.parquet'):
@@ -74,7 +71,6 @@ class LabEngine:
             self.df = add_fvg_order_flow_context(self.df)
             
             self.df.dropna(inplace=True)
-            print(f"      -> DNA complete. Valid rows remaining: {len(self.df)}")
         
         except Exception as e:
             print(f"❌ Error loading data: {e}")
@@ -83,13 +79,11 @@ class LabEngine:
         return True
 
     def run_hypothesis(self, hypothesis):
-        print(f"\n[2/3] Executing Hypothesis Engine: {hypothesis.name}...")
         current_day = None
 
         for index, row in self.df.iterrows():
             day_date = index.date()
             if day_date != current_day:
-                print(f"\r      -> Processing date: {day_date} ...", end="", flush=True)
                 current_day = day_date
 
             hypothesis.evaluate_row(row, index)
@@ -97,16 +91,11 @@ class LabEngine:
         # Save dynamic audit log named after the hypothesis!
         os.makedirs("output", exist_ok=True)
         audit_filename = f"output/{hypothesis.name}_audit_log.csv"
-        audit_df = pd.DataFrame(hypothesis.daily_logs)
-        audit_df.to_csv(audit_filename, index=False)
-        
-        print(f"\n      -> Hypothesis finished. Raw triggers generated: {len(hypothesis.triggers)}")
-        print(f"      -> Daily Audit Trail saved to '{audit_filename}'")
+        pd.DataFrame(hypothesis.daily_logs).to_csv(audit_filename, index=False)
 
     def evaluate(self, hypothesis):
         import json # Make sure json is imported at the top of engine.py
         
-        print("\n[3/3] Running Quantitative Signal Evaluation...")
         if len(hypothesis.triggers) == 0:
             print("❌ No triggers generated.")
             return
@@ -114,12 +103,8 @@ class LabEngine:
         evaluator = SignalEvaluator(self.df, hypothesis.triggers, hypothesis.name)
         metrics = evaluator.calculate_metrics()
         
-        print("\n=========================================")
-        print("        HYPOTHESIS TEAR SHEET            ")
-        print("=========================================")
         for key, value in metrics.items():
             print(f"  {key:<20} : {value}")
-        print("=========================================\n")
         
         
 

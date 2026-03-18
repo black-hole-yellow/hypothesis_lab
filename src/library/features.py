@@ -16,7 +16,6 @@ def add_volatility_zscore(df: pd.DataFrame, lookback: int = 50) -> pd.DataFrame:
 
 def add_volume_zscore(df, lookback=20):
     """Calculates how 'unusual' the current volume is compared to the recent past."""
-    print(f"     -> Calculating Volume Z-Score (lookback={lookback})...")
     mean_vol = df['Volume'].rolling(window=lookback).mean()
     std_vol = df['Volume'].rolling(window=lookback).std()
     
@@ -246,7 +245,6 @@ def add_volume_profile_features(df, session_start="00:00", session_end="08:00", 
     Calculates the Asian Session Volume Profile and identifies 
     Low-Volume Nodes (Voids) and the Point of Control (POC).
     """
-    print("     -> Building Session Volume Profiles...")
     
     # 1. Setup metadata
     pip_value = 0.0001 # Standard for GBPUSD

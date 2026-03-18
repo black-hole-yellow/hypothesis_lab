@@ -49,7 +49,13 @@ class SignalEvaluator:
 
             # Directional Accuracy (Hit Ratio)
             hits = np.sign(eval_df['Signal']) == np.sign(eval_df[f'Fwd_Ret_{h}'])
+            
+            win_count = int(hits.sum())
+            loss_count = int(len(hits) - win_count)
+            
             metrics[f'Hit_Ratio_{h}H'] = round(hits.mean() * 100, 2)
+            metrics[f'Wins_{h}H'] = win_count
+            metrics[f'Losses_{h}H'] = loss_count
 
             # Information Coefficient (Spearman Rank)
             ic, _ = spearmanr(eval_df['Signal'], eval_df[f'Fwd_Ret_{h}'])
@@ -67,6 +73,9 @@ class SignalEvaluator:
                 best_t_stat = t_stat
                 best_ic = ic
                 best_horizon = h
+                metrics['Best_Win_Count'] = win_count
+                metrics['Best_Loss_Count'] = loss_count
+                
 
         metrics['Optimal_Hold_Hours'] = best_horizon
         metrics['Max_IC'] = round(best_ic, 4)
