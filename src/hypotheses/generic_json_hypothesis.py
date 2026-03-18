@@ -11,6 +11,7 @@ class GenericJSONHypothesis(BaseHypothesis):
         self.parser = SignalParser(self.config.get("parameters", {}))
         self.logic = self.config.get("logic", {})
         self.entry_rules = self.logic.get("entry_rules", {})
+        self.filters = self.logic.get("filters", [])
 
     def evaluate_row(self, row: pd.Series, index: pd.Timestamp):
         """
@@ -24,7 +25,10 @@ class GenericJSONHypothesis(BaseHypothesis):
                 ua_time = index.tz_localize('UTC').tz_convert('Europe/Kyiv').strftime('%Y-%m-%d %H:%M:%S')
         except:
             ua_time = str(index) 
-
+        
+        if self.filters and not self.parser.check_conditions(row, self.filters):
+            return 
+    
         # Extract the exact probability calculated by your DNA library
         trend_prob = row.get('HTF_Bullish_Prob', 'N/A')
 

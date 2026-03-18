@@ -43,6 +43,8 @@ class LabEngine:
 
             # 4. Assign the clean, filtered data to the engine
             self.df = temp_df
+            
+            self.df['UA_Hour'] = self.df.index.tz_convert('Europe/Kyiv').hour
 
             # --- FEATURE ENGINEERING ---
             self.df = add_log_returns(self.df)
