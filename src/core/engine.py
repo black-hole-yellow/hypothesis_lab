@@ -89,7 +89,7 @@ class LabEngine:
             print(f"  {key:<20} : {value}")
         print("=========================================\n")
         
-        save_hypothesis_results(metrics, filepath="output/hypothesis_results.csv")
+        
 
         # --- THE PRODUCTION HANDOFF AUTOMATION ---
         # Assuming your SignalEvaluator returns metrics like 'T_Stat' and 'Win_Rate'

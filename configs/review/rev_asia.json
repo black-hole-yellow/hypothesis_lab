@@ -1,0 +1,46 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_001_MEAN_REV_ASIA",
+    "name": "Asian Session Mean Reversion",
+    "author": "Algo_Generator_v1",
+    "rationale": "If price heavily deviates from the mean (high Z-Score) during low-volume Asian hours, it will likely revert to the mean before London Open."
+  },
+  "universe": {
+    "instruments": ["GBPUSD", "EURUSD"],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "Price_ZScore", 
+      "ATR_14", 
+      "HMM_Volatility_Regime"
+    ]
+  },
+  "parameters": {
+    "zscore_threshold": 2.5,
+    "atr_minimum": 0.0010,
+    "trading_start_hour": 22,
+    "trading_end_hour": 6
+  },
+  "logic": {
+    "filters": [
+      {"condition": "hour >= param:trading_start_hour OR hour < param:trading_end_hour"},
+      {"feature": "ATR_14", "operator": ">", "value": "param:atr_minimum"},
+      {"feature": "HMM_Volatility_Regime", "operator": "==", "value": 0} 
+    ],
+    "entry_rules": {
+      "long_trigger": [
+        {"feature": "Price_ZScore", "operator": "<", "value": "-param:zscore_threshold"}
+      ],
+      "short_trigger": [
+        {"feature": "Price_ZScore", "operator": ">", "value": "param:zscore_threshold"}
+      ]
+    },
+    "exit_rules": {
+      "time_stop": {"hour": 8},
+      "take_profit_atr_multiplier": 1.5,
+      "stop_loss_atr_multiplier": 1.0
+    }
+  }
+}
