@@ -1,0 +1,73 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_002_LDN_VOID_REV",
+    "name": "London Open Void Reversion",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Identifies when the London Open (10:00 EET) pushes aggressively into a price zone that saw almost no participation during the Asian session (Liquidity Void). Expects a 4-hour mean reversion to the high-volume Point of Control (POC)."
+  },
+  "universe": {
+    "instruments": ["GBPUSD"],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "In_Liquidity_Void",
+      "Volume_ZScore",
+      "Price_ZScore",
+      "UA_Hour",
+      "Dist_to_POC_Pips"
+    ]
+  },
+  "parameters": {
+    "london_open_hour_eet": 10,
+    "min_vol_zscore": 2.0,
+    "min_price_zscore": 2.0,
+    "reversion_window_hours": 4
+  },
+  "logic": {
+    "filters": [
+      {
+        "feature": "UA_Hour",
+        "operator": "==",
+        "value": "param:london_open_hour_eet"
+      },
+      {
+        "feature": "In_Liquidity_Void",
+        "operator": "==",
+        "value": 1
+      }
+    ],
+    "entry_rules": {
+      "long_trigger": [
+        {
+          "feature": "Volume_ZScore",
+          "operator": ">",
+          "value": "param:min_vol_zscore"
+        },
+        {
+          "feature": "Price_ZScore",
+          "operator": "<",
+          "value": "-param:min_price_zscore"
+        }
+      ],
+      "short_trigger": [
+        {
+          "feature": "Volume_ZScore",
+          "operator": ">",
+          "value": "param:min_vol_zscore"
+        },
+        {
+          "feature": "Price_ZScore",
+          "operator": ">",
+          "value": "param:min_price_zscore"
+        }
+      ]
+    },
+    "exit_rules": {
+      "max_hold_time_hours": "param:reversion_window_hours",
+      "primary_target": "Asian_POC",
+      "stop_loss_atr_multiplier": 1.5
+    }
+  }
+}

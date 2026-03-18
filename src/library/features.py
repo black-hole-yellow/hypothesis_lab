@@ -229,3 +229,69 @@ def add_htf_trend(df: pd.DataFrame, htf: str = 'D', ema_period: int = 20) -> pd.
     df['HTF_Trend_Down'] = df['HTF_Trend_Down'].ffill().fillna(False)
     
     return df
+
+def add_volume_profile_features(df, session_start="00:00", session_end="08:00", bin_size_pips=5):
+    """
+    Calculates the Asian Session Volume Profile and identifies 
+    Low-Volume Nodes (Voids) and the Point of Control (POC).
+    """
+    print("     -> Building Session Volume Profiles...")
+    
+    # 1. Setup metadata
+    pip_value = 0.0001 # Standard for GBPUSD
+    bin_width = bin_size_pips * pip_value
+    
+    # We create a column to track if a row belongs to the target session
+    df['is_session'] = (df.index.strftime('%H:%M') >= session_start) & \
+                       (df.index.strftime('%H:%M') <= session_end)
+    
+    # Identify unique days to process session by session
+    df['date_group'] = df.index.date
+    
+    # Placeholders for our new DNA features
+    df['In_Liquidity_Void'] = 0
+    df['Dist_to_POC_Pips'] = 0.0
+    
+    for date, group in df.groupby('date_group'):
+        session_data = group[group['is_session']]
+        
+        if session_data.empty:
+            continue
+            
+        # 2. Create Price Bins for the session
+        price_min = session_data['Low'].min()
+        price_max = session_data['High'].max()
+        bins = np.arange(price_min, price_max + bin_width, bin_width)
+        
+        # 3. Aggregate Volume at Price
+        # We assign each 15m candle's volume to its Close price bin
+        vol_profile, _ = np.histogram(session_data['Close'], bins=bins, weights=session_data['Volume'])
+        
+        if len(vol_profile) == 0:
+            continue
+            
+        # 4. Identify POC (Point of Control) and LVNs (Low Volume Nodes)
+        poc_index = np.argmax(vol_profile)
+        poc_price = bins[poc_index]
+        
+        # Define a Void as any bin with < 15% of the average session volume
+        avg_vol = np.mean(vol_profile)
+        lvn_threshold = avg_vol * 0.15
+        lvn_bins = bins[np.where(vol_profile < lvn_threshold)[0]]
+        
+        # 5. Map these back to the full day (post-session candles)
+        day_indices = group.index
+        
+        # Calculate distance to session POC for every candle in the day
+        df.loc[day_indices, 'Dist_to_POC_Pips'] = (df.loc[day_indices, 'Close'] - poc_price) / pip_value
+        
+        # Check if the current price is inside an identified Low Volume Node (Void)
+        # We check if the Close is within any of the LVN price ranges
+        for lvn_p in lvn_bins:
+            is_in_void = (df.loc[day_indices, 'Close'] >= lvn_p) & \
+                         (df.loc[day_indices, 'Close'] < lvn_p + bin_width)
+            df.loc[day_indices[is_in_void], 'In_Liquidity_Void'] = 1
+
+    # Cleanup temporary columns
+    df.drop(columns=['is_session', 'date_group'], inplace=True)
+    return df
