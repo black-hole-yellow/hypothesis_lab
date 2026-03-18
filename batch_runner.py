@@ -35,17 +35,23 @@ def process_pending_hypotheses():
             config = json.load(f)
 
         timeframe = config.get("universe", {}).get("resolution", "1h")
+        instruments = config.get("universe", {}).get("instruments", ["GBPUSD"])
+        symbol = instruments[0] if instruments else "GBPUSD"
+
+        processed_data_path = f"data/processed/{symbol}_{timeframe}.parquet"
+
+        if not os.path.exists(processed_data_path):
+            print(f"❌ Missing processed data: {processed_data_path}. Run DataPolisher first!")
+            shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
+            continue
+
         engine = LabEngine(
-            data_file="data/gbpusd_data.csv",
+            data_file=processed_data_path,
             start_date="2015-01-01",
             end_date="2026-02-27",
             timeframe=timeframe
         )
 
-        if not engine.prepare_data():
-            print(f"❌ Failed to load data. Moving {filename} to REVIEW.")
-            shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
-            continue
 
         hypothesis = GenericJSONHypothesis(config=config)
         engine.run_hypothesis(hypothesis)

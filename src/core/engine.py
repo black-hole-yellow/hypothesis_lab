@@ -19,35 +19,41 @@ class LabEngine:
         self.df = None
 
     def prepare_data(self):
-        print("=========================================")
-        print("      QUANT HYPOTHESIS LAB v3.0          ")
-        print("=========================================")
-        print("\n[1/3] Loading Data & Calculating Market DNA...")
+        print(f"[1/3] Loading data from {self.data_file}...")
+        try:
+            # --- NEW: Support for Institutional Parquet Data ---
+            if self.data_file.endswith('.parquet'):
+                self.df = pd.read_parquet(self.data_file)
+            else:
+                # Fallback for old CSVs just in case
+                self.df = pd.read_csv(self.data_file)
+                self.df['Datetime'] = pd.to_datetime(self.df['Datetime'])
+                self.df.set_index('Datetime', inplace=True)
+
+            # Build DNA
+            df = add_log_returns(df)
+            df = add_atr(df, lookback=14)
+            df = add_volatility_ratio(df, short_lookback=14, long_lookback=100)
+            df = add_normalized_slope(df, lookback=20, atr_lookback=14)
+            df = add_price_zscore(df, lookback=50)
+            df = add_shannon_entropy(df, lookback=50)
+            df = add_williams_fractals(df, timeframe=self.timeframe, n=2)
+            
+            print("      -> Calculating Hurst Exponent...")
+            df = add_hurst_exponent(df, lookback=100)
+            print("      -> Training HMM for Volatility Regimes...")
+            df = add_hmm_volatility_regime(df)
+
+            df = add_htf_trend_probability(df, htf='4h', lookback=60) 
+            
+            df.dropna(inplace=True)
+            print(f"      -> DNA complete. Valid rows remaining: {len(df)}")
+            self.df = df
         
-        df = load_and_prep_data(self.data_file, self.start_date, self.end_date, self.timeframe)
-        if df is None or df.empty:
-            print("❌ Lab Terminated: No data available.")
+        except Exception as e:
+            print(f"❌ Error loading data: {e}")
             return False
 
-        # Build DNA
-        df = add_log_returns(df)
-        df = add_atr(df, lookback=14)
-        df = add_volatility_ratio(df, short_lookback=14, long_lookback=100)
-        df = add_normalized_slope(df, lookback=20, atr_lookback=14)
-        df = add_price_zscore(df, lookback=50)
-        df = add_shannon_entropy(df, lookback=50)
-        df = add_williams_fractals(df, timeframe=self.timeframe, n=2)
-        
-        print("      -> Calculating Hurst Exponent...")
-        df = add_hurst_exponent(df, lookback=100)
-        print("      -> Training HMM for Volatility Regimes...")
-        df = add_hmm_volatility_regime(df)
-
-        df = add_htf_trend_probability(df, htf='4h', lookback=60) 
-        
-        df.dropna(inplace=True)
-        print(f"      -> DNA complete. Valid rows remaining: {len(df)}")
-        self.df = df
         return True
 
     def run_hypothesis(self, hypothesis):
