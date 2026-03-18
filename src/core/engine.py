@@ -52,6 +52,10 @@ class LabEngine:
             
             self.df['UA_Hour'] = self.df.index.tz_convert('Europe/Kyiv').hour
 
+            if self.df['Volume'].sum() == 0:
+                print("     ! Warning: Zero volume detected. Simulating Tick Volume...")
+                self.df['Volume'] = abs(self.df['High'] - self.df['Low']) * 100000
+
             # --- FEATURE ENGINEERING ---
             self.df = add_log_returns(self.df)
             self.df = add_atr(self.df, lookback=14)
