@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_016_LDN_PDH_PDL_SWEEP",
+    "name": "London PDH/PDL Sweep Reversal",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Tests if London sweeping the Previous Day High or Low and printing a confirmed fractal acts as the high/low of the session, leading to a major intraday reversal."
+  },
+  "universe": {
+    "instruments": ["GBPUSD"],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "First_LDN_PDL_Long",
+      "First_LDN_PDH_Short"
+    ]
+  },
+  "parameters": {},
+  "logic": {
+    "filters": [],
+    "entry_rules": {
+      "long_trigger": [
+        {
+          "comment": "London sweeps PDL and forms a Fractal Low. Buy the reversal.",
+          "feature": "First_LDN_PDL_Long",
+          "operator": "==",
+          "value": 1
+        }
+      ],
+      "short_trigger": [
+        {
+          "comment": "London sweeps PDH and forms a Fractal High. Sell the reversal.",
+          "feature": "First_LDN_PDH_Short",
+          "operator": "==",
+          "value": 1
+        }
+      ]
+    },
+    "exit_rules": {
+      "max_hold_time_hours": 8
+    }
+  }
+}

@@ -291,6 +291,42 @@ def add_asian_sweep_context(df: pd.DataFrame, max_dist_pips: int = 15) -> pd.Dat
     
     return df
 
+def add_london_pdh_pdl_sweep_context(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Detects if the London session sweeps the Previous Day High/Low 
+    and prints a confirmed fractal at that exact sweep.
+    Requires add_previous_boundaries and add_confirmed_fractals.
+    """
+    # 1. London Evaluation Window (10:00 - 14:00 Kyiv Time)
+    is_london_eval = (df['UA_Hour'] >= 10) & (df['UA_Hour'] <= 14)
+    
+    # 2. Safely extract fractal signals
+    fractal_low = (df['Confirmed_Fractal_Low'].fillna(0) == 1)
+    fractal_high = (df['Confirmed_Fractal_High'].fillna(0) == 1)
+    
+    # 3. Check if the fractal price actually swept the PDL/PDH
+    # Confirmed_Fractal_Low_Price stores the exact price of the wick that formed the valley
+    sweep_pdl = df['Confirmed_Fractal_Low_Price'] < df['PDL']
+    sweep_pdh = df['Confirmed_Fractal_High_Price'] > df['PDH']
+    
+    # 4. Trap Logic
+    # We LONG if London sweeps the PDL and forms a Fractal Low (Fake breakdown)
+    df['LDN_Sweep_PDL_Long'] = is_london_eval & fractal_low & sweep_pdl
+    
+    # We SHORT if London sweeps the PDH and forms a Fractal High (Fake breakout)
+    df['LDN_Sweep_PDH_Short'] = is_london_eval & fractal_high & sweep_pdh
+    
+    # 5. Strictly ONE trigger per day (Bulletproof Cumulative Sum)
+    df['Date'] = df.index.date
+    df['Sweep_Trigger_Count'] = (df['LDN_Sweep_PDL_Long'] | df['LDN_Sweep_PDH_Short']).groupby(df['Date']).cumsum()
+    
+    df['First_LDN_PDL_Long'] = (df['LDN_Sweep_PDL_Long'] & (df['Sweep_Trigger_Count'] == 1)).astype(int)
+    df['First_LDN_PDH_Short'] = (df['LDN_Sweep_PDH_Short'] & (df['Sweep_Trigger_Count'] == 1)).astype(int)
+    
+    # Clean up intermediate tracking columns
+    df.drop(columns=['Date', 'Sweep_Trigger_Count', 'LDN_Sweep_PDL_Long', 'LDN_Sweep_PDH_Short'], inplace=True)
+    return df
+
 def add_fvg_order_flow_context(df: pd.DataFrame) -> pd.DataFrame:
     """
     Identifies if price is inside a 4H FVG and if a 1H Order Flow Flip occurred.

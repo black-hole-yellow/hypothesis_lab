@@ -23,8 +23,8 @@ def run_hypothesis_visualization():
     # Use a tight 2-month window so candlesticks are actually readable
     engine = LabEngine(
         data_file=data_path,
-        start_date="2023-09-01", 
-        end_date="2023-11-01",
+        start_date="2024-09-01", 
+        end_date="2026-02-26",
         timeframe="1h"
     )
 
@@ -69,8 +69,8 @@ def run_hypothesis_visualization():
                color='gray', marker='.', s=30, zorder=4)
 
     # --- 3. DRAW HYPOTHESIS TRIGGERS (Large & Obvious) ---
-    long_triggers = df[df['First_LDN_Counter_High'] == 1]
-    short_triggers = df[df['First_LDN_Counter_Low'] == 1]
+    long_triggers = df[df['First_LDN_PDL_Long'] == 1]
+    short_triggers = df[df['First_LDN_PDH_Short'] == 1]
     
     ax.scatter(long_triggers.index, long_triggers['Low'] - (15 * PIP), 
                color='blue', marker='^', s=200, zorder=5, label='BUY (Break Fake Res)')
