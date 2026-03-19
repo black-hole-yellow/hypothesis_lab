@@ -2,6 +2,8 @@ import os
 import json
 import shutil
 import glob
+import pandas as pd 
+
 from src.core.engine import LabEngine
 from src.hypotheses.generic_json_hypothesis import GenericJSONHypothesis
 from src.core.evaluator import SignalEvaluator
@@ -9,14 +11,14 @@ from src.core.evaluator import SignalEvaluator
 # --- DIRECTORY SETUP ---
 PENDING_DIR = "configs/pending_hypotheses"
 PRODUCTION_DIR = "configs/production"
-REVIEW_DIR = "configs/review"  # <--- Changed from Archive to Review
+REVIEW_DIR = "configs/review"
 
 for directory in [PENDING_DIR, PRODUCTION_DIR, REVIEW_DIR]:
     os.makedirs(directory, exist_ok=True)
 
 def process_pending_hypotheses():
     print("=========================================")
-    print("      AUTOMATED QUANT PIPELINE v1.1      ")
+    print("      AUTOMATED QUANT PIPELINE v1.2      ")
     print("=========================================")
     
     pending_files = glob.glob(os.path.join(PENDING_DIR, "*.json"))
@@ -46,12 +48,12 @@ def process_pending_hypotheses():
 
         engine = LabEngine(
             data_file=processed_data_path,
-            start_date="2016-01-01",
+            start_date="2015-01-01",
             end_date="2026-02-27",
             timeframe=timeframe
         )
 
-        # 2. Actually load the data into memory!
+        # Load the data into memory
         if not engine.prepare_data():
             shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
             continue
@@ -77,9 +79,39 @@ def process_pending_hypotheses():
         win_rate = metrics.get(f'Hit_Ratio_{h}H', 0)
         wins = metrics.get('Best_Win_Count', 0)
         losses = metrics.get('Best_Loss_Count', 0)
-        
-        # Ensure we grab the T-Stat securely for the specific horizon
         t_stat = metrics.get(f'T_Stat_{h}H', 0.0)
+
+        # ==========================================================
+        #  NEW: INJECT WIN/LOSS OUTCOMES INTO THE CSV LOG
+        # ==========================================================
+        fwd_col = f'Fwd_Ret_{h}'
+        for i, trigger in enumerate(hypothesis.triggers):
+            dt = trigger['Datetime']
+            if dt in evaluator.df.index:
+                ret = evaluator.df.at[dt, fwd_col]
+                signal = evaluator.df.at[dt, 'Signal']
+                
+                if pd.isna(ret):
+                    # If the trade triggered on the very last day of data, 
+                    # there is no future data to check yet!
+                    outcome = "Pending"
+                else:
+                    # If signal matches the direction of the return, it's a win!
+                    outcome = "Win" if (signal * ret) > 0 else "Loss"
+            else:
+                outcome = "Unknown"
+                
+            # Remove old Status columns and add Outcome
+            hypothesis.daily_logs[i].pop('Status', None)
+            hypothesis.daily_logs[i].pop('Signal_Triggered', None)
+            hypothesis.daily_logs[i]['Outcome'] = outcome
+
+        # Save dynamic audit log named after the hypothesis
+        os.makedirs("output", exist_ok=True)
+        safe_name = hypothesis.name.replace('/', '_').replace('\\', '_')
+        audit_filename = f"output/{safe_name}_audit_log.csv"
+        pd.DataFrame(hypothesis.daily_logs).to_csv(audit_filename, index=False)
+        # ==========================================================
 
         print(f"=========================================")
         print(f"  TEAR SHEET: {hypothesis.name}")

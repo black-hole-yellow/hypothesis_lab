@@ -10,12 +10,13 @@ from src.library.features import (
     add_volume_profile_features, add_volatility_zscore, add_confirmed_fractals
 )
 from src.library.htf_features import (
-    add_1d_swing_context, add_1w_swing_context, add_asia_fvg_protection_context, add_asian_sr_alignment_context, 
-    add_fvg_sr_confluence_context, add_htf_trend_probability, 
+    add_1d_swing_context, add_1w_level_rejection_context, add_1w_swing_context, add_asia_fvg_protection_context, add_asian_sr_alignment_context, 
+    add_fvg_sr_confluence_context, add_geopolitical_shock_context, add_htf_trend_probability, 
     add_fvg_order_flow_context, add_london_counter_fractal_context, add_london_pdh_pdl_sweep_context, add_ny_sr_touch_context, add_previous_boundaries, add_weekly_floor_context, calculate_multi_tf_fvgs, 
     add_asian_sweep_context, add_ny_expansion_context, 
     add_weekly_swing_context
 )
+from src.utils.macro_registry import load_macro_events
 
 class LabEngine:
     def __init__(self, data_file: str, start_date: str, end_date: str, timeframe: str = "1h"):
@@ -107,6 +108,11 @@ class LabEngine:
         self.df = add_london_counter_fractal_context(self.df)
         self.df = add_london_pdh_pdl_sweep_context(self.df)
         self.df = add_asia_fvg_protection_context(self.df)
+        self.df = add_1w_level_rejection_context(self.df, max_dist_pips=0)
+
+        # --- PHASE 6: MACRO-EVENT CONTEXT ---
+        events = load_macro_events()
+        self.df = add_geopolitical_shock_context(self.df, events)
 
     def run_hypothesis(self, hypothesis):
         """Simulates the environment row-by-row for the strategy."""
@@ -128,9 +134,9 @@ class LabEngine:
             if len(hypothesis.triggers) > triggers_before:
                 new_trade = hypothesis.triggers[-1]
                 trend_prob = row.get('HTF_Bullish_Prob', 50.0)
-                
-                # FIX: Use Capital 'D' to match the JSON output
                 direction = new_trade.get('Direction', '') 
+                
+                is_shock = row.get('Geo_Shock_Short', 0) == 1
                 
                 # The Rules of the Guard:
                 kill_long = (direction == 'Long') and (trend_prob < 55)
@@ -140,12 +146,3 @@ class LabEngine:
                     # Assassinate the trade! It fights the macro trend.
                     hypothesis.triggers.pop()
                     hypothesis.daily_logs.pop()
-
-        # Save dynamic audit log named after the hypothesis!
-        os.makedirs("output", exist_ok=True)
-        
-        # Make the filename safe for the OS (replace slashes with underscores)
-        safe_name = hypothesis.name.replace('/', '_').replace('\\', '_')
-        audit_filename = f"output/{safe_name}_audit_log.csv"
-        
-        pd.DataFrame(hypothesis.daily_logs).to_csv(audit_filename, index=False)

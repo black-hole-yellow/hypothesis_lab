@@ -682,6 +682,72 @@ def add_asia_fvg_protection_context(df: pd.DataFrame) -> pd.DataFrame:
     df.drop(columns=['Asia_Low_Protected', 'Asia_High_Protected'], inplace=True)
     return df
 
+def add_1w_level_rejection_context(df: pd.DataFrame, max_dist_pips: int = 20) -> pd.DataFrame:
+    """
+    Detects if a counter-trend pullback taps a Major Weekly Level (PWH/PWL) 
+    and prints a confirmed fractal, signaling macro trend continuation.
+    Requires add_previous_boundaries and add_confirmed_fractals.
+    """
+    PIP = 0.0001
+    tol = max_dist_pips * PIP
+    
+    # 1. Safely extract fractal signals
+    fractal_low = (df['Confirmed_Fractal_Low'].fillna(0) == 1)
+    fractal_high = (df['Confirmed_Fractal_High'].fillna(0) == 1)
+    
+    # 2. Check if the fractal wick tapped or swept the Weekly Extremes
+    # We allow a 20-pip tolerance above/below the exact level
+    tap_pwl = df['Confirmed_Fractal_Low_Price'] <= (df['PWL'] + tol)
+    tap_pwh = df['Confirmed_Fractal_High_Price'] >= (df['PWH'] - tol)
+              
+    # 3. Active Trading Hours (London & NY: 10:00 - 21:00 Kyiv Time)
+    is_active = (df['UA_Hour'] >= 10) & (df['UA_Hour'] <= 21)
+    
+    # 4. Trigger Logic (Fractal forms at the weekly level during active hours)
+    df['Reject_PWL_Long'] = is_active & fractal_low & tap_pwl
+    df['Reject_PWH_Short'] = is_active & fractal_high & tap_pwh
+    
+    # 5. Bulletproof: Strictly ONE trigger per day
+    df['Date'] = df.index.date
+    df['1W_Rej_Trigger_Count'] = (df['Reject_PWL_Long'] | df['Reject_PWH_Short']).groupby(df['Date']).cumsum()
+    
+    df['First_1W_Rej_Long'] = (df['Reject_PWL_Long'] & (df['1W_Rej_Trigger_Count'] == 1)).astype(int)
+    df['First_1W_Rej_Short'] = (df['Reject_PWH_Short'] & (df['1W_Rej_Trigger_Count'] == 1)).astype(int)
+    
+    # Clean up
+    df.drop(columns=['Date', '1W_Rej_Trigger_Count', 'Reject_PWL_Long', 'Reject_PWH_Short'], inplace=True)
+    return df
+
+def add_geopolitical_shock_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
+    """
+    Сканирует реестр макро-событий и ставит триггер '1' на той свече,
+    когда новость ударила по рынку.
+    """
+    df['Geo_Shock_Short'] = 0
+    
+    # Фильтруем только геополитические шоки
+    shock_events = [e for e in events if e.get('category') == 'Geopolitical_Shock']
+    
+    for event in shock_events:
+        try:
+            # Даты из macro_registry уже являются pd.Timestamp
+            dt = event['start_date']
+            
+            # Локализуем новость в UTC, затем переводим в Киевское время (как индекс DF)
+            if dt.tz is None:
+                dt = dt.tz_localize('UTC')
+            dt_kyiv = dt.tz_convert('Europe/Kyiv')
+            
+            # Округляем до часа вниз, чтобы найти нужную свечу
+            rounded_dt = dt_kyiv.floor('h')
+            
+            if rounded_dt in df.index:
+                df.loc[rounded_dt, 'Geo_Shock_Short'] = 1
+        except Exception as e:
+            print(f"Skipping event {event.get('name')} due to error: {e}")
+            
+    return df
+
 def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int = 60) -> pd.DataFrame:
     """
     Calculates a 0-100% Bullish Trend Probability using HTF Confluence.
