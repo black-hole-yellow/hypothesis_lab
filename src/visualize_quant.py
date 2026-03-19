@@ -23,8 +23,8 @@ def run_hypothesis_visualization():
     # Use a tight 2-month window so candlesticks are actually readable
     engine = LabEngine(
         data_file=data_path,
-        start_date="2022-01-01", 
-        end_date="2023-01-01",
+        start_date="2025-01-01", 
+        end_date="2026-02-27",
         timeframe="1h"
     )
 
@@ -68,16 +68,19 @@ def run_hypothesis_visualization():
     ax.scatter(fractal_lows.index, fractal_lows['Low'] - (3 * PIP), 
                color='gray', marker='.', s=30, zorder=4)
 
-    # --- 3. DRAW HYPOTHESIS TRIGGERS (Filtered by Macro Trend) ---
-    # We apply the same >55 / <45 Trend Guard here so the chart matches the Tear Sheet!
-    long_triggers = df[(df['First_LDN_PDL_Long'] == 1) & (df['HTF_Bullish_Prob'] >= 55)]
-    short_triggers = df[(df['First_LDN_PDH_Short'] == 1) & (df['HTF_Bullish_Prob'] <= 45)]
+    # --- 3. DRAW HYPOTHESIS TRIGGERS (Filtered by Global Trend Guard) ---
+    # Long: Asia Low Protected + Bullish Trend (> 55)
+    long_triggers = df[(df['LDN_Protected_AL_Long'] == 1) & (df['HTF_Bullish_Prob'] >= 55)]
     
-    # Plot the arrows
-    ax.scatter(long_triggers.index, long_triggers['Low'] - (15 * PIP), 
-               color='blue', marker='^', s=200, zorder=5, label='BUY (PDL Sweep + Bull Trend)')
-    ax.scatter(short_triggers.index, short_triggers['High'] + (15 * PIP), 
-               color='magenta', marker='v', s=200, zorder=5, label='SELL (PDH Sweep + Bear Trend)')
+    # Short: Asia High Protected + Bearish Trend (< 45)
+    short_triggers = df[(df['LDN_Protected_AH_Short'] == 1) & (df['HTF_Bullish_Prob'] <= 45)]
+    
+    # Plot the Entry Arrows
+    ax.scatter(long_triggers.index, long_triggers['Low'] - (20 * PIP), 
+               color='blue', marker='^', s=200, zorder=5, label='BUY (Asia Low Protected)')
+               
+    ax.scatter(short_triggers.index, short_triggers['High'] + (20 * PIP), 
+               color='magenta', marker='v', s=200, zorder=5, label='SELL (Asia High Protected)')
 
     # --- 4. SHADE BACKGROUNDS ---
     ymin, ymax = df['Low'].min() - (20 * PIP), df['High'].max() + (20 * PIP)
@@ -93,7 +96,7 @@ def run_hypothesis_visualization():
     ax.fill_between(df.index, ymin, ymax, where=is_london, color='blue', alpha=0.03, zorder=1)
 
     # --- 5. FORMATTING ---
-    ax.set_title("Hypothesis 15: London Counter-Trend Trap (Candlestick View)", fontsize=16, fontweight='bold', pad=15)
+    ax.set_title("Hypothesis 17: London Asia Protected Continuation", fontsize=16, fontweight='bold', pad=15)
     ax.set_ylabel("GBP/USD Price")
     ax.set_ylim(ymin, ymax)
     ax.grid(True, linestyle='--', alpha=0.4, zorder=0)

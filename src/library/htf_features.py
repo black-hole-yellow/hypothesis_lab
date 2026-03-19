@@ -651,6 +651,37 @@ def add_asian_sr_alignment_context(df: pd.DataFrame, max_dist_pips: int = 15) ->
 
     return df
 
+def add_asia_fvg_protection_context(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Определяет, находится ли Азиатский Хай/Лоу внутри 4H FVG.
+    Запускает триггер на продолжение тренда ровно в 10:00 (London Open).
+    """
+    # 1. Проверяем, находится ли Азиатский Лоу внутри бычьего 4H FVG
+    df['Asia_Low_Protected'] = (df['FVG_4h_Type'] == 'BULL') & \
+                               (df['Asia_Low'] <= df['FVG_4h_Top']) & \
+                               (df['Asia_Low'] >= df['FVG_4h_Bottom'])
+
+    # 2. Проверяем, находится ли Азиатский Хай внутри медвежьего 4H FVG
+    df['Asia_High_Protected'] = (df['FVG_4h_Type'] == 'BEAR') & \
+                                (df['Asia_High'] <= df['FVG_4h_Top']) & \
+                                (df['Asia_High'] >= df['FVG_4h_Bottom'])
+
+    # 3. Триггер ровно на первой свече открытия Лондона (10:00 Киев)
+    is_london_open = (df['UA_Hour'] == 10)
+
+    # Лонг, если Азиатский Лоу защищен
+    df['LDN_Protected_AL_Long'] = is_london_open & df['Asia_Low_Protected']
+    
+    # Шорт, если Азиатский Хай защищен
+    df['LDN_Protected_AH_Short'] = is_london_open & df['Asia_High_Protected']
+
+    # Очистка и форматирование (1/0 для парсера)
+    df['LDN_Protected_AL_Long'] = df['LDN_Protected_AL_Long'].fillna(False).astype(int)
+    df['LDN_Protected_AH_Short'] = df['LDN_Protected_AH_Short'].fillna(False).astype(int)
+
+    df.drop(columns=['Asia_Low_Protected', 'Asia_High_Protected'], inplace=True)
+    return df
+
 def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int = 60) -> pd.DataFrame:
     """
     Calculates a 0-100% Bullish Trend Probability using HTF Confluence.
