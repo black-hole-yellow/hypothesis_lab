@@ -130,20 +130,17 @@ class LabEngine:
                 new_trade = hypothesis.triggers[-1]
                 trend_prob = row.get('HTF_Bullish_Prob', 50.0)
                 
-                # Extract the direction (Assumes your JSON creates 'Long' or 'Short' direction tags)
-                direction = new_trade.get('direction', '') 
+                # FIX: Use Capital 'D' to match the JSON output
+                direction = new_trade.get('Direction', '') 
                 
                 # The Rules of the Guard:
-                # If it's a Long, but Trend is < 55 (Not clearly Bullish) -> KILL IT
                 kill_long = (direction == 'Long') and (trend_prob < 55)
-                
-                # If it's a Short, but Trend is > 45 (Not clearly Bearish) -> KILL IT
                 kill_short = (direction == 'Short') and (trend_prob > 45)
                 
                 if kill_long or kill_short:
                     # Assassinate the trade! It fights the macro trend.
                     hypothesis.triggers.pop()
-                    hypothesis.daily_logs.pop()  # Keep the audit log perfectly clean too
+                    hypothesis.daily_logs.pop()
 
         # Save dynamic audit log named after the hypothesis!
         os.makedirs("output", exist_ok=True)
