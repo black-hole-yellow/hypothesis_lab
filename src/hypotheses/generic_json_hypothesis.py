@@ -38,7 +38,7 @@ class GenericJSONHypothesis(BaseHypothesis):
             'Datetime_Kyiv': ua_time,
             'Trend_%': row.get('HTF_Bullish_Prob', 'N/A'),
             'Close_Price': row.get('Close', 'N/A'),
-            'Status': 'True', # If it makes it to the log, it triggered
+            'Signal_Triggered': 'Yes', 
             'Direction': None
         }
 
