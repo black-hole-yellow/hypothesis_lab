@@ -23,7 +23,7 @@ def run_hypothesis_visualization():
     # Use a tight 2-month window so candlesticks are actually readable
     engine = LabEngine(
         data_file=data_path,
-        start_date="2024-09-01", 
+        start_date="2025-09-01", 
         end_date="2026-02-26",
         timeframe="1h"
     )
