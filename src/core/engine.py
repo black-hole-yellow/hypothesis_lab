@@ -10,7 +10,7 @@ from src.library.features import (
     add_volume_profile_features, add_volatility_zscore, add_confirmed_fractals
 )
 from src.library.htf_features import (
-    add_1d_swing_context, add_asian_sr_alignment_context, 
+    add_1d_swing_context, add_1w_swing_context, add_asian_sr_alignment_context, 
     add_fvg_sr_confluence_context, add_htf_trend_probability, 
     add_fvg_order_flow_context, add_london_counter_fractal_context, add_ny_sr_touch_context, add_weekly_floor_context, calculate_multi_tf_fvgs, 
     add_asian_sweep_context, add_ny_expansion_context, 
@@ -84,6 +84,7 @@ class LabEngine:
 
         # --- PHASE 3: BASE STRUCTURE ---
         self.df = calculate_multi_tf_fvgs(self.df)
+        self.df = add_1w_swing_context(self.df)
         self.df = add_1d_swing_context(self.df)
         self.df = add_weekly_swing_context(self.df)
         self.df = add_williams_fractals(self.df, timeframe=self.timeframe, n=2)

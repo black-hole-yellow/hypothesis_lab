@@ -258,7 +258,7 @@ def add_asian_sweep_context(df: pd.DataFrame, max_dist_pips: int = 15) -> pd.Dat
     tolerance = max_dist_pips * PIP
     
     # 1. Define Asian Session (00:00 to 08:00 Kyiv Time)
-    is_asia = (df['UA_Hour'] >= 0) & (df['UA_Hour'] <= 9)
+    is_asia = (df['UA_Hour'] >= 0) & (df['UA_Hour'] <= 10)
     
     # 2. Get daily Asian High/Low
     df['Date_Key'] = df.index.date
@@ -416,12 +416,41 @@ def add_ny_expansion_context(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
+def add_1w_swing_context(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Determines the 1W HTF Swing direction based on the last broken weekly extreme.
+    Guaranteed zero lookahead bias and stateful tracking.
+    """
+    # 1. Define the 1-Week (120 trading hours) rolling extremes
+    df['1W_High'] = df['High'].rolling(window=120).max().shift(1)
+    df['1W_Low'] = df['Low'].rolling(window=120).min().shift(1)
+
+    # 2. Track structural breaks
+    df['Broke_1W_High'] = df['Close'] > df['1W_High']
+    df['Broke_1W_Low'] = df['Close'] < df['1W_Low']
+
+    # 3. Create a stateful "Swing Signal" (1 for Bullish, -1 for Bearish)
+    df['Swing_Signal'] = 0
+    df.loc[df['Broke_1W_High'], 'Swing_Signal'] = 1
+    df.loc[df['Broke_1W_Low'], 'Swing_Signal'] = -1
+    
+    # Forward fill the state so it holds 'Bullish' until a 'Bearish' break occurs
+    df['1W_Swing_State'] = df['Swing_Signal'].replace(0, np.nan).ffill().fillna(0)
+
+    # 4. Binary features for the JSON Parser
+    df['1W_Swing_Bullish'] = (df['1W_Swing_State'] == 1).astype(int)
+    df['1W_Swing_Bearish'] = (df['1W_Swing_State'] == -1).astype(int)
+
+    # Clean up intermediate columns
+    df.drop(columns=['1W_High', '1W_Low', 'Broke_1W_High', 'Broke_1W_Low', 'Swing_Signal', '1W_Swing_State'], inplace=True)
+    
+    return df
+
 def add_1d_swing_context(df: pd.DataFrame) -> pd.DataFrame:
     """
     Determines the 1D Swing direction based on the last broken daily extreme.
     Tracks structural breaks over a rolling 24-hour period.
     """
-    import numpy as np
     
     # 1. 1-Day (24 hours) rolling extremes
     df['1D_High'] = df['High'].rolling(window=24).max().shift(1)
@@ -552,7 +581,6 @@ def add_asian_sr_alignment_context(df: pd.DataFrame, max_dist_pips: int = 15) ->
     Фиксирует первый ложный пробой этой зоны после открытия Лондона.
     Требует выполнения add_asian_sweep_context и add_ny_sr_touch_context до нее.
     """
-    import numpy as np
     PIP = 0.0001
     dist = max_dist_pips * PIP
 
@@ -563,8 +591,8 @@ def add_asian_sr_alignment_context(df: pd.DataFrame, max_dist_pips: int = 15) ->
     # Азиатский Лоу совпадает с Макро-Поддержкой
     df['Asia_Sup_Aligned'] = (abs(df['Asia_Low'] - df['Major_Support']) <= dist)
 
-    # 2. Ищем пробой (только в активные часы: Лондон и Нью-Йорк, с 9:00 до 21:00)
-    is_active_session = (df['UA_Hour'] >= 9) & (df['UA_Hour'] <= 21)
+    # 2. Ищем пробой (только в активные часы: Лондон и Нью-Йорк, с 10:00 до 21:00)
+    is_active_session = (df['UA_Hour'] >= 10) & (df['UA_Hour'] <= 21)
 
     # Цена пробивает сдвоенный Хай вверх (готовимся шортить)
     df['Break_Aligned_Res'] = is_active_session & df['Asia_Res_Aligned'] & (df['High'] > df['Asia_High'])
@@ -585,29 +613,6 @@ def add_asian_sr_alignment_context(df: pd.DataFrame, max_dist_pips: int = 15) ->
     df['First_False_Break_Res'] = df['First_False_Break_Res'].fillna(False).astype(int)
     df['First_False_Break_Sup'] = df['First_False_Break_Sup'].fillna(False).astype(int)
 
-    return df
-
-
-def add_1d_fvg_fractal_context(df: pd.DataFrame, n: int = 2) -> pd.DataFrame:
-    """
-    Detects standard fractals (n-period highs/lows).
-    """
-    # Detect Bullish Fractal (Low of candle is lower than 'n' candles before and after)
-    df['Is_Bull_Fractal'] = (df['Low'] < df['Low'].shift(1)) & \
-                            (df['Low'] < df['Low'].shift(2)) & \
-                            (df['Low'] < df['Low'].shift(-1)) & \
-                            (df['Low'] < df['Low'].shift(-2))
-                            
-    # Detect Bearish Fractal (High of candle is higher than 'n' candles before and after)
-    df['Is_Bear_Fractal'] = (df['High'] > df['High'].shift(1)) & \
-                            (df['High'] > df['High'].shift(2)) & \
-                            (df['High'] > df['High'].shift(-1)) & \
-                            (df['High'] > df['High'].shift(-2))
-
-    # Convert to 1/0 for the engine
-    df['Is_Bull_Fractal'] = df['Is_Bull_Fractal'].fillna(False).astype(int)
-    df['Is_Bear_Fractal'] = df['Is_Bear_Fractal'].fillna(False).astype(int)
-    
     return df
 
 def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int = 60) -> pd.DataFrame:
