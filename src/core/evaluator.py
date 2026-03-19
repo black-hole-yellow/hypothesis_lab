@@ -33,9 +33,9 @@ class SignalEvaluator:
             'Status': 'PENDING'
         }
 
-        best_ic = -1
-        best_horizon = 0
-        best_t_stat = 0
+        best_ic = -float('inf')
+        best_horizon = horizons[0]
+        best_t_stat = -float('inf')
 
         for h in horizons:
             # Shift negative to look into the future

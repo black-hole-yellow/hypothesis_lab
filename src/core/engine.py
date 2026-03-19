@@ -58,11 +58,9 @@ class LabEngine:
         if self.df.index.tz is None:
             self.df.index = self.df.index.tz_localize('UTC')
             
-        # 1. Convert the ENTIRE DataFrame index to Kyiv Time permanently
-        self.df.index = self.df.index.tz_convert('Europe/Kyiv')
-        
-        # 2. Extract the hour directly from the new localized index
-        self.df['UA_Hour'] = self.df.index.hour
+        # KEEP the master index in UTC for the Evaluator, 
+        # but calculate the Session Hours dynamically in Kyiv Time!
+        self.df['UA_Hour'] = self.df.index.tz_convert('Europe/Kyiv').hour
         
 
         if self.df['Volume'].sum() == 0:

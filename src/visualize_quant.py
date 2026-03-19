@@ -23,8 +23,8 @@ def run_hypothesis_visualization():
     # Use a tight 2-month window so candlesticks are actually readable
     engine = LabEngine(
         data_file=data_path,
-        start_date="2025-09-01", 
-        end_date="2026-02-26",
+        start_date="2022-01-01", 
+        end_date="2023-01-01",
         timeframe="1h"
     )
 
@@ -68,14 +68,16 @@ def run_hypothesis_visualization():
     ax.scatter(fractal_lows.index, fractal_lows['Low'] - (3 * PIP), 
                color='gray', marker='.', s=30, zorder=4)
 
-    # --- 3. DRAW HYPOTHESIS TRIGGERS (Large & Obvious) ---
-    long_triggers = df[df['First_LDN_PDL_Long'] == 1]
-    short_triggers = df[df['First_LDN_PDH_Short'] == 1]
+    # --- 3. DRAW HYPOTHESIS TRIGGERS (Filtered by Macro Trend) ---
+    # We apply the same >55 / <45 Trend Guard here so the chart matches the Tear Sheet!
+    long_triggers = df[(df['First_LDN_PDL_Long'] == 1) & (df['HTF_Bullish_Prob'] >= 55)]
+    short_triggers = df[(df['First_LDN_PDH_Short'] == 1) & (df['HTF_Bullish_Prob'] <= 45)]
     
+    # Plot the arrows
     ax.scatter(long_triggers.index, long_triggers['Low'] - (15 * PIP), 
-               color='blue', marker='^', s=200, zorder=5, label='BUY (Break Fake Res)')
+               color='blue', marker='^', s=200, zorder=5, label='BUY (PDL Sweep + Bull Trend)')
     ax.scatter(short_triggers.index, short_triggers['High'] + (15 * PIP), 
-               color='magenta', marker='v', s=200, zorder=5, label='SELL (Break Fake Sup)')
+               color='magenta', marker='v', s=200, zorder=5, label='SELL (PDH Sweep + Bear Trend)')
 
     # --- 4. SHADE BACKGROUNDS ---
     ymin, ymax = df['Low'].min() - (20 * PIP), df['High'].max() + (20 * PIP)
