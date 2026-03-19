@@ -258,7 +258,7 @@ def add_asian_sweep_context(df: pd.DataFrame, max_dist_pips: int = 15) -> pd.Dat
     tolerance = max_dist_pips * PIP
     
     # 1. Define Asian Session (00:00 to 08:00 Kyiv Time)
-    is_asia = (df['UA_Hour'] >= 0) & (df['UA_Hour'] <= 8)
+    is_asia = (df['UA_Hour'] >= 0) & (df['UA_Hour'] <= 9)
     
     # 2. Get daily Asian High/Low
     df['Date_Key'] = df.index.date
@@ -443,6 +443,40 @@ def add_1d_swing_context(df: pd.DataFrame) -> pd.DataFrame:
     df['1D_Swing_Bearish'] = (df['1D_Swing_State'] == -1).astype(int)
 
     df.drop(columns=['1D_High', '1D_Low', 'Broke_1D_High', 'Broke_1D_Low', '1D_Swing_Signal', '1D_Swing_State'], inplace=True)
+    return df
+
+def add_weekly_floor_context(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Detects if a London Fractal aligns with the Weekly Swing direction.
+    Uses an expanded time window (09:00 - 14:00) to account for n=2 confirmation lag.
+    """
+    # 1. Time Window
+    is_london_eval = (df['UA_Hour'] >= 10) & (df['UA_Hour'] <= 14)
+    
+    # 2. Extract Data Safely (Converting to boolean to prevent 1/0 matching errors)
+    bull_swing = df['1W_Swing_Bullish'].fillna(0) == 1
+    bear_swing = df['1W_Swing_Bearish'].fillna(0) == 1
+    
+    fractal_low = df['Confirmed_Fractal_Low'].fillna(0) == 1
+    fractal_high = df['Confirmed_Fractal_High'].fillna(0) == 1
+    
+    # 3. Match Logic: Bullish Swing + Fractal Low (Support)
+    df['LDN_Weekly_Bull_Floor'] = is_london_eval & bull_swing & fractal_low
+    
+    # Match Logic: Bearish Swing + Fractal High (Resistance)
+    df['LDN_Weekly_Bear_Floor'] = is_london_eval & bear_swing & fractal_high
+    
+    # 4. Ensure strictly ONE trigger per day (The Bulletproof Fix)
+    df['Date'] = df.index.date
+    df['Floor_Trigger_Count'] = (df['LDN_Weekly_Bull_Floor'] | df['LDN_Weekly_Bear_Floor']).groupby(df['Date']).cumsum()
+    
+    # 5. Final Engine Output Columns
+    df['First_LDN_Weekly_Bull'] = (df['LDN_Weekly_Bull_Floor'] & (df['Floor_Trigger_Count'] == 1)).astype(int)
+    df['First_LDN_Weekly_Bear'] = (df['LDN_Weekly_Bear_Floor'] & (df['Floor_Trigger_Count'] == 1)).astype(int)
+    
+    # Clean up intermediate data
+    df.drop(columns=['Date', 'Floor_Trigger_Count', 'LDN_Weekly_Bull_Floor', 'LDN_Weekly_Bear_Floor'], inplace=True)
+    
     return df
 
 def add_london_counter_fractal_context(df: pd.DataFrame) -> pd.DataFrame:
