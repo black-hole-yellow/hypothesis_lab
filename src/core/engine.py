@@ -136,13 +136,13 @@ class LabEngine:
                 trend_prob = row.get('HTF_Bullish_Prob', 50.0)
                 direction = new_trade.get('Direction', '') 
                 
-                is_shock = row.get('Geo_Shock_Short', 0) == 1
+                is_shock = (row.get('Geo_Shock_Short', 0) == 1)
                 
                 # The Rules of the Guard:
-                kill_long = (direction == 'Long') and (trend_prob < 55)
-                kill_short = (direction == 'Short') and (trend_prob > 45)
-                
-                if kill_long or kill_short:
-                    # Assassinate the trade! It fights the macro trend.
-                    hypothesis.triggers.pop()
-                    hypothesis.daily_logs.pop()
+                if not is_shock:
+                    kill_long = (direction == 'Long') and (trend_prob < 55)
+                    kill_short = (direction == 'Short') and (trend_prob > 45)
+                    
+                    if kill_long or kill_short:
+                        hypothesis.triggers.pop()
+                        hypothesis.daily_logs.pop()

@@ -721,7 +721,7 @@ def add_1w_level_rejection_context(df: pd.DataFrame, max_dist_pips: int = 20) ->
 def add_geopolitical_shock_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
     """
     Сканирует реестр макро-событий и ставит триггер '1' на той свече,
-    когда новость ударила по рынку.
+    когда новость ударила по рынку (строго в UTC).
     """
     df['Geo_Shock_Short'] = 0
     
@@ -730,21 +730,28 @@ def add_geopolitical_shock_context(df: pd.DataFrame, events: list) -> pd.DataFra
     
     for event in shock_events:
         try:
-            # Даты из macro_registry уже являются pd.Timestamp
             dt = event['start_date']
             
-            # Локализуем новость в UTC, затем переводим в Киевское время (как индекс DF)
+            # Мастер-индекс (df.index) находится в UTC!
+            # Локализуем время события в UTC для идеального совпадения.
             if dt.tz is None:
                 dt = dt.tz_localize('UTC')
-            dt_kyiv = dt.tz_convert('Europe/Kyiv')
+            else:
+                dt = dt.tz_convert('UTC')
             
-            # Округляем до часа вниз, чтобы найти нужную свечу
-            rounded_dt = dt_kyiv.floor('h')
+            # Округляем до часа, чтобы совпало со свечой 1H
+            rounded_dt = dt.floor('h')
             
+            # Ищем точное совпадение
             if rounded_dt in df.index:
                 df.loc[rounded_dt, 'Geo_Shock_Short'] = 1
+            else:
+                print(f"   ! Пропуск: Свеча {rounded_dt} ({event.get('name')}) не найдена в данных (выходной/гэп).")
         except Exception as e:
             print(f"Skipping event {event.get('name')} due to error: {e}")
+            
+    # Принудительно конвертируем в int, чтобы JSON парсер (== 1) сработал идеально
+    df['Geo_Shock_Short'] = df['Geo_Shock_Short'].fillna(0).astype(int)
             
     return df
 
