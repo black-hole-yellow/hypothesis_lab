@@ -30,7 +30,7 @@ class LabEngine:
         try:
             self._load_and_filter_data()
             self._apply_feature_pipeline()
-            self.df.dropna(inplace=True)
+
             return True
         except Exception as e:
             print(f"❌ Critical Error in Data Pipeline: {e}")
@@ -58,7 +58,8 @@ class LabEngine:
         if self.df.index.tz is None:
             self.df.index = self.df.index.tz_localize('UTC')
         
-        self.df['UA_Hour'] = self.df.index.tz_convert('Europe/Kyiv').hour
+       
+        self.df['UA_Hour'] = (self.df.index.tz_convert('Europe/Kyiv') + pd.Timedelta(hours=1)).hour
 
         if self.df['Volume'].sum() == 0:
             print("     ! Warning: Zero volume detected. Simulating Tick Volume...")

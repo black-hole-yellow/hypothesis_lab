@@ -448,32 +448,29 @@ def add_1d_swing_context(df: pd.DataFrame) -> pd.DataFrame:
 def add_london_counter_fractal_context(df: pd.DataFrame) -> pd.DataFrame:
     """
     Detects when a London fractal forms AGAINST the 1D trend (a Liquidity Trap).
-    Requires add_1d_swing_context and add_confirmed_fractals.
     """
-    # 1. London Evaluation Window (including n=2 confirmation lag)
-    is_london_eval = (df['UA_Hour'] >= 9) & (df['UA_Hour'] <= 14)
+    # 1. London Evaluation Window
+    is_london_eval = (df['UA_Hour'] >= 10) & (df['UA_Hour'] <= 14)
     
-    # Safely extract states
-    bull_trend = df['1D_Swing_Bullish'].fillna(0) == 1
-    bear_trend = df['1D_Swing_Bearish'].fillna(0) == 1
+    # 2. Extract states securely
+    bull_trend = (df['1D_Swing_Bullish'] == 1)
+    bear_trend = (df['1D_Swing_Bearish'] == 1)
     
-    fractal_low = df['Confirmed_Fractal_Low'].fillna(0) == 1
-    fractal_high = df['Confirmed_Fractal_High'].fillna(0) == 1
+    fractal_low = (df['Confirmed_Fractal_Low'] == 1)
+    fractal_high = (df['Confirmed_Fractal_High'] == 1)
 
-    # 2. Trap Logic: 
-    # Bearish Trend + Fractal Low (Fake Support) -> We want to SHORT this to break the low
+    # 3. Trap Logic
     df['LDN_Counter_Low_Trap'] = is_london_eval & bear_trend & fractal_low
-    
-    # Bullish Trend + Fractal High (Fake Resistance) -> We want to LONG this to break the high
     df['LDN_Counter_High_Trap'] = is_london_eval & bull_trend & fractal_high
 
-    # 3. Bulletproof strictly one trigger per day
+    # 4. Strictly one trigger per day
     df['Date'] = df.index.date
     df['Trap_Trigger_Count'] = (df['LDN_Counter_Low_Trap'] | df['LDN_Counter_High_Trap']).groupby(df['Date']).cumsum()
     
     df['First_LDN_Counter_Low'] = (df['LDN_Counter_Low_Trap'] & (df['Trap_Trigger_Count'] == 1)).astype(int)
     df['First_LDN_Counter_High'] = (df['LDN_Counter_High_Trap'] & (df['Trap_Trigger_Count'] == 1)).astype(int)
     
+    # Clean up AFTER printing
     df.drop(columns=['Date', 'Trap_Trigger_Count', 'LDN_Counter_Low_Trap', 'LDN_Counter_High_Trap'], inplace=True)
     return df
 
