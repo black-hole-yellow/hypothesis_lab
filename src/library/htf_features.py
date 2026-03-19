@@ -416,35 +416,65 @@ def add_ny_expansion_context(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-def add_1w_swing_context(df: pd.DataFrame) -> pd.DataFrame:
+def add_1d_swing_context(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Determines the 1W HTF Swing direction based on the last broken weekly extreme.
-    Guaranteed zero lookahead bias and stateful tracking.
+    Determines the 1D Swing direction based on the last broken daily extreme.
+    Tracks structural breaks over a rolling 24-hour period.
     """
-    # 1. Define the 1-Week (120 trading hours) rolling extremes
-    # Shifted by 1 so the current candle is comparing against HISTORY
-    df['1W_High'] = df['High'].rolling(window=120).max().shift(1)
-    df['1W_Low'] = df['Low'].rolling(window=120).min().shift(1)
-
-    # 2. Track structural breaks (Did we close above the 1W High / below 1W Low?)
-    df['Broke_1W_High'] = df['Close'] > df['1W_High']
-    df['Broke_1W_Low'] = df['Close'] < df['1W_Low']
-
-    # 3. Create a stateful "Swing Signal" (1 for Bullish, -1 for Bearish)
-    df['Swing_Signal'] = 0
-    df.loc[df['Broke_1W_High'], 'Swing_Signal'] = 1
-    df.loc[df['Broke_1W_Low'], 'Swing_Signal'] = -1
+    import numpy as np
     
-    # Forward fill the state so it holds 'Bullish' until a 'Bearish' break occurs
-    df['1W_Swing_State'] = df['Swing_Signal'].replace(0, np.nan).ffill().fillna(0)
+    # 1. 1-Day (24 hours) rolling extremes
+    df['1D_High'] = df['High'].rolling(window=24).max().shift(1)
+    df['1D_Low'] = df['Low'].rolling(window=24).min().shift(1)
 
-    # 4. Expose clean binary features for the JSON Parser
-    df['1W_Swing_Bullish'] = (df['1W_Swing_State'] == 1).astype(int)
-    df['1W_Swing_Bearish'] = (df['1W_Swing_State'] == -1).astype(int)
+    # 2. Track structural breaks
+    df['Broke_1D_High'] = df['Close'] > df['1D_High']
+    df['Broke_1D_Low'] = df['Close'] < df['1D_Low']
 
-    # Clean up intermediate columns
-    df.drop(columns=['1W_High', '1W_Low', 'Broke_1W_High', 'Broke_1W_Low', 'Swing_Signal', '1W_Swing_State'], inplace=True)
+    # 3. Stateful Swing Signal
+    df['1D_Swing_Signal'] = 0
+    df.loc[df['Broke_1D_High'], '1D_Swing_Signal'] = 1
+    df.loc[df['Broke_1D_Low'], '1D_Swing_Signal'] = -1
     
+    df['1D_Swing_State'] = df['1D_Swing_Signal'].replace(0, np.nan).ffill().fillna(0)
+
+    # 4. Binary features
+    df['1D_Swing_Bullish'] = (df['1D_Swing_State'] == 1).astype(int)
+    df['1D_Swing_Bearish'] = (df['1D_Swing_State'] == -1).astype(int)
+
+    df.drop(columns=['1D_High', '1D_Low', 'Broke_1D_High', 'Broke_1D_Low', '1D_Swing_Signal', '1D_Swing_State'], inplace=True)
+    return df
+
+def add_london_counter_fractal_context(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Detects when a London fractal forms AGAINST the 1D trend (a Liquidity Trap).
+    Requires add_1d_swing_context and add_confirmed_fractals.
+    """
+    # 1. London Evaluation Window (including n=2 confirmation lag)
+    is_london_eval = (df['UA_Hour'] >= 9) & (df['UA_Hour'] <= 14)
+    
+    # Safely extract states
+    bull_trend = df['1D_Swing_Bullish'].fillna(0) == 1
+    bear_trend = df['1D_Swing_Bearish'].fillna(0) == 1
+    
+    fractal_low = df['Confirmed_Fractal_Low'].fillna(0) == 1
+    fractal_high = df['Confirmed_Fractal_High'].fillna(0) == 1
+
+    # 2. Trap Logic: 
+    # Bearish Trend + Fractal Low (Fake Support) -> We want to SHORT this to break the low
+    df['LDN_Counter_Low_Trap'] = is_london_eval & bear_trend & fractal_low
+    
+    # Bullish Trend + Fractal High (Fake Resistance) -> We want to LONG this to break the high
+    df['LDN_Counter_High_Trap'] = is_london_eval & bull_trend & fractal_high
+
+    # 3. Bulletproof strictly one trigger per day
+    df['Date'] = df.index.date
+    df['Trap_Trigger_Count'] = (df['LDN_Counter_Low_Trap'] | df['LDN_Counter_High_Trap']).groupby(df['Date']).cumsum()
+    
+    df['First_LDN_Counter_Low'] = (df['LDN_Counter_Low_Trap'] & (df['Trap_Trigger_Count'] == 1)).astype(int)
+    df['First_LDN_Counter_High'] = (df['LDN_Counter_High_Trap'] & (df['Trap_Trigger_Count'] == 1)).astype(int)
+    
+    df.drop(columns=['Date', 'Trap_Trigger_Count', 'LDN_Counter_Low_Trap', 'LDN_Counter_High_Trap'], inplace=True)
     return df
 
 def add_fvg_sr_confluence_context(df: pd.DataFrame, max_dist_pips: int = 30) -> pd.DataFrame:
@@ -526,39 +556,6 @@ def add_asian_sr_alignment_context(df: pd.DataFrame, max_dist_pips: int = 15) ->
 
     return df
 
-def add_weekly_floor_context(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Detects if a London Fractal aligns with the Weekly Swing direction.
-    Uses an expanded time window (09:00 - 14:00) to account for n=2 confirmation lag.
-    """
-    # 1. Time Window
-    is_london_eval = (df['UA_Hour'] >= 9) & (df['UA_Hour'] <= 14)
-    
-    # 2. Extract Data Safely (Converting to boolean to prevent 1/0 matching errors)
-    bull_swing = df['1W_Swing_Bullish'].fillna(0) == 1
-    bear_swing = df['1W_Swing_Bearish'].fillna(0) == 1
-    
-    fractal_low = df['Confirmed_Fractal_Low'].fillna(0) == 1
-    fractal_high = df['Confirmed_Fractal_High'].fillna(0) == 1
-    
-    # 3. Match Logic: Bullish Swing + Fractal Low (Support)
-    df['LDN_Weekly_Bull_Floor'] = is_london_eval & bull_swing & fractal_low
-    
-    # Match Logic: Bearish Swing + Fractal High (Resistance)
-    df['LDN_Weekly_Bear_Floor'] = is_london_eval & bear_swing & fractal_high
-    
-    # 4. Ensure strictly ONE trigger per day (The Bulletproof Fix)
-    df['Date'] = df.index.date
-    df['Floor_Trigger_Count'] = (df['LDN_Weekly_Bull_Floor'] | df['LDN_Weekly_Bear_Floor']).groupby(df['Date']).cumsum()
-    
-    # 5. Final Engine Output Columns
-    df['First_LDN_Weekly_Bull'] = (df['LDN_Weekly_Bull_Floor'] & (df['Floor_Trigger_Count'] == 1)).astype(int)
-    df['First_LDN_Weekly_Bear'] = (df['LDN_Weekly_Bear_Floor'] & (df['Floor_Trigger_Count'] == 1)).astype(int)
-    
-    # Clean up intermediate data
-    df.drop(columns=['Date', 'Floor_Trigger_Count', 'LDN_Weekly_Bull_Floor', 'LDN_Weekly_Bear_Floor'], inplace=True)
-    
-    return df
 
 def add_1d_fvg_fractal_context(df: pd.DataFrame, n: int = 2) -> pd.DataFrame:
     """

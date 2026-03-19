@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_015_LDN_COUNTER_TRAP",
+    "name": "London Counter-Trend Fractal Break",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Tests if counter-trend fractals printed in London during a strong 1D trend act as liquidity traps that get broken before the session ends."
+  },
+  "universe": {
+    "instruments": ["GBPUSD"],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "First_LDN_Counter_Low",
+      "First_LDN_Counter_High"
+    ]
+  },
+  "parameters": {},
+  "logic": {
+    "filters": [],
+    "entry_rules": {
+      "long_trigger": [
+        {
+          "comment": "1D is Bullish, London prints a Fake Resistance Fractal. We buy to break it.",
+          "feature": "First_LDN_Counter_High",
+          "operator": "==",
+          "value": 1
+        }
+      ],
+      "short_trigger": [
+        {
+          "comment": "1D is Bearish, London prints a Fake Support Fractal. We sell to break it.",
+          "feature": "First_LDN_Counter_Low",
+          "operator": "==",
+          "value": 1
+        }
+      ]
+    },
+    "exit_rules": {
+      "max_hold_time_hours": 5
+    }
+  }
+}
