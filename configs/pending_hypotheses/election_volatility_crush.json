@@ -1,0 +1,37 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_020_ELECTION_VOL_CRUSH",
+    "name": "UK Election Volatility Crush",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Ненаправленная макро-стратегия. Измеряет падение реализованной волатильности (ATR) сразу после публикации экзит-полов на всеобщих выборах в Великобритании."
+  },
+  "universe": {
+    "instruments": ["GBPUSD"],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "Election_Vol_Crush_Short"
+    ]
+  },
+  "parameters": {},
+  "logic": {
+    "evaluation_metric": "Realized_Vol", 
+    "filters": [],
+    "entry_rules": {
+      "long_trigger": [],
+      "short_trigger": [
+        {
+          "comment": "Экзит-поллы опубликованы. Шортим саму ВОЛАТИЛЬНОСТЬ.",
+          "feature": "Election_Vol_Crush_Short",
+          "operator": ">",
+          "value": 0
+        }
+      ]
+    },
+    "exit_rules": {
+      "max_hold_time_hours": 24
+    }
+  }
+}

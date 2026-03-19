@@ -82,6 +82,26 @@ def add_session_tags(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
+def load_parquet_data(file_path: str) -> pd.DataFrame:
+    """
+    Загружает обработанные данные в формате Parquet и проверяет индекс.
+    """
+    if not os.path.exists(file_path):
+        print(f"❌ ERROR: Файл не найден по адресу {file_path}")
+        return pd.DataFrame()
+
+    try:
+        # Читаем parquet файл
+        df = pd.read_parquet(file_path)
+        
+        # Убеждаемся, что индекс является DatetimeIndex
+        if not isinstance(df.index, pd.DatetimeIndex):
+            df.index = pd.to_datetime(df.index)
+            
+        return df
+    except Exception as e:
+        print(f"❌ ERROR при загрузке Parquet: {e}")
+        return pd.DataFrame()
 
 df = pd.read_csv("data/gbpusd_data.csv", sep='\t', names=['Date','O','H','L','C','X'])
 print(f"Data Starts: {df['Date'].iloc[0]}")

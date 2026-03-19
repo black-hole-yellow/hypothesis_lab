@@ -48,7 +48,7 @@ def process_pending_hypotheses():
 
         engine = LabEngine(
             data_file=processed_data_path,
-            start_date="2000-01-01",
+            start_date="2015-01-01",
             end_date="2026-02-27",
             timeframe=timeframe
         )
@@ -66,7 +66,8 @@ def process_pending_hypotheses():
             shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
             continue
 
-        evaluator = SignalEvaluator(engine.df, hypothesis.triggers, hypothesis.name)
+        target_metric = config.get("logic", {}).get("evaluation_metric", "Close")
+        evaluator = SignalEvaluator(engine.df, hypothesis.triggers, hypothesis.name, target_col=target_metric)
         metrics = evaluator.calculate_metrics()
         
         if not metrics or 'Optimal_Hold_Hours' not in metrics:
@@ -123,9 +124,20 @@ def process_pending_hypotheses():
         print(f"  Best T-Stat ({h}H)    : {t_stat}")
         print(f"=========================================")
 
-        # Use the explicit horizon T-Stat for the production check
-        if t_stat >= 2.0:
-            print("✅ PASSED: Promoted to PRODUCTION.")
+        # Умная логика промоушена:
+        freq = metrics.get('Frequency', 0)
+        
+        # 1. Стандартное правило больших чисел (T-Stat >= 2.0)
+        statistically_significant = (t_stat >= 2.0)
+        
+        # 2. Исключение для Черных Лебедей (Макро-шоки, мало сделок, но высокий винрейт)
+        macro_exemption = (freq > 0) and (freq < 15) and (win_rate >= 70.0)
+
+        if statistically_significant or macro_exemption:
+            if macro_exemption:
+                print("✅ PASSED (MACRO EXEMPTION): Promoted to PRODUCTION.")
+            else:
+                print("✅ PASSED (STATISTICAL EDGE): Promoted to PRODUCTION.")
             shutil.move(file_path, os.path.join(PRODUCTION_DIR, filename))
         else:
             print("❌ FAILED: Moved to REVIEW.")

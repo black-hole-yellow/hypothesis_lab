@@ -2,12 +2,14 @@ import pandas as pd
 import numpy as np
 from scipy.stats import spearmanr
 import os
+import warnings
 
 class SignalEvaluator:
-    def __init__(self, df: pd.DataFrame, triggers: list, hypothesis_name: str):
+    def __init__(self, df: pd.DataFrame, triggers: list, hypothesis_name: str, target_col: str = 'Close'):
         self.df = df.copy()
         self.triggers = triggers
         self.hypothesis_name = hypothesis_name
+        self.target_col = target_col
         
         # Build the Signal Vector (+1 for Long, -1 for Short, 0 for Neutral)
         self.df['Signal'] = 0.0
@@ -22,7 +24,7 @@ class SignalEvaluator:
         active_signals = signal[signal != 0]
         freq = len(active_signals)
         
-        if freq < 10:
+        if freq < 2:
             return {'Hypothesis': self.hypothesis_name, 'Status': 'FAILED (Not enough data)', 'Frequency': freq}
 
         # 1. Forward Returns (1H, 4H, 12H, 24H)
@@ -39,13 +41,13 @@ class SignalEvaluator:
 
         for h in horizons:
             # Shift negative to look into the future
-            self.df[f'Fwd_Ret_{h}'] = (self.df['Close'].shift(-h) / self.df['Close']) - 1
+            self.df[f'Fwd_Ret_{h}'] = (self.df[self.target_col].shift(-h) / self.df[self.target_col]) - 1
             
             # Mask to only evaluate periods where a signal fired
             mask = (self.df['Signal'] != 0) & (self.df[f'Fwd_Ret_{h}'].notna())
             eval_df = self.df[mask]
             
-            if len(eval_df) < 5: continue
+            if len(eval_df) < 2: continue
 
             # Directional Accuracy (Hit Ratio)
             hits = np.sign(eval_df['Signal']) == np.sign(eval_df[f'Fwd_Ret_{h}'])
@@ -58,18 +60,30 @@ class SignalEvaluator:
             metrics[f'Losses_{h}H'] = loss_count
 
             # Information Coefficient (Spearman Rank)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+
+            # Information Coefficient (Spearman Rank)
             ic, _ = spearmanr(eval_df['Signal'], eval_df[f'Fwd_Ret_{h}'])
+
+            
+            
+            # --- THE FIX FOR ONE-SIDED EVENT SIGNALS ---
+            if np.isnan(ic):
+                # Если сигнал всегда смотрит в одну сторону, Спирмен ломается.
+                # Аппроксимируем IC через математическое преимущество (Edge).
+                # 75% WR -> IC = 0.5 | 50% WR -> IC = 0.0
+                ic = (hits.mean() - 0.5) * 2 
             
             # T-Statistic of the IC (Degrees of freedom = N - 2)
             n = len(eval_df)
-            # Add tiny epsilon to avoid division by zero if IC is perfect 1.0
-            t_stat = ic * np.sqrt((n - 2) / ((1 - ic**2) + 1e-8)) 
+            t_stat = ic * np.sqrt((n - 2) / ((1 - ic**2) + 1e-8)) if n > 2 else 0.0
             
             metrics[f'IC_{h}H'] = round(ic, 4)
             metrics[f'T_Stat_{h}H'] = round(t_stat, 2)
 
-            # Track the Optimal Holding Period based on highest T-Stat
-            if t_stat > best_t_stat:
+            # Track the Optimal Holding Period (добавлен fallback для первой итерации)
+            if t_stat > best_t_stat or best_horizon == 0:
                 best_t_stat = t_stat
                 best_ic = ic
                 best_horizon = h

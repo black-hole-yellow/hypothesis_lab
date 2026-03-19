@@ -755,6 +755,42 @@ def add_geopolitical_shock_context(df: pd.DataFrame, events: list) -> pd.DataFra
             
     return df
 
+def add_election_volatility_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
+    """
+    Рассчитывает реализованную волатильность (4H ATR) и ставит триггер на Шорт 
+    в момент публикации экзит-полов (Volatility Crush).
+    """
+    # 1. Считаем True Range (TR) и 4H Реализованную Волатильность
+    df['TR'] = np.maximum(
+        df['High'] - df['Low'],
+        np.maximum(abs(df['High'] - df['Close'].shift(1)), abs(df['Low'] - df['Close'].shift(1)))
+    )
+    df['Realized_Vol'] = df['TR'].rolling(window=4).mean() * 10000
+
+    df['Election_Vol_Crush_Short'] = 0
+    
+    # 2. Ищем выборы в реестре
+    elections = [e for e in events if e.get('category') == 'Elections']
+    
+    for event in elections:
+        try:
+            dt = pd.to_datetime(event['start_date'])
+            if dt.tz is None:
+                dt = dt.tz_localize('UTC')
+            else:
+                dt = dt.tz_convert('UTC')
+                
+            rounded_dt = dt.floor('h')
+            
+            # Ставим сигнал на T=0
+            if rounded_dt in df.index:
+                df.loc[rounded_dt, 'Election_Vol_Crush_Short'] = 1
+        except Exception as e:
+            print(f"Skipping event {event.get('name')} due to error: {e}")
+            
+    df['Election_Vol_Crush_Short'] = df['Election_Vol_Crush_Short'].fillna(0).astype(int)
+    return df
+
 def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int = 60) -> pd.DataFrame:
     """
     Calculates a 0-100% Bullish Trend Probability using HTF Confluence.

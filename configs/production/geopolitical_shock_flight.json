@@ -24,8 +24,8 @@
         {
           "comment": "Сработал триггер геополитического шока. Шортим немедленно.",
           "feature": "Geo_Shock_Short",
-          "operator": "==",
-          "value": 1
+          "operator": ">",
+          "value": 0
         }
       ]
     },
