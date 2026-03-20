@@ -296,5 +296,74 @@
       "start_date": "2023-09-21T11:00:00Z",
       "end_date": "2023-09-21T23:59:00Z"
     }
+  ],
+  "UK_CPI_Shock": [
+    {
+      "name": "CPI Upside Surprise (Jan 2010: Act 3.5% vs Exp 3.2%)",
+      "start_date": "2010-02-16T07:00:00Z",
+      "end_date": "2010-02-16T23:59:00Z"
+    },
+    {
+      "name": "CPI Upside Surprise (Sep 2011: Act 5.2% vs Exp 4.9%)",
+      "start_date": "2011-10-18T06:00:00Z",
+      "end_date": "2011-10-18T23:59:00Z"
+    },
+    {
+      "name": "CPI Downside Surprise (Jul 2021: Act 2.0% vs Exp 2.3%)",
+      "start_date": "2021-08-18T06:00:00Z",
+      "end_date": "2021-08-18T23:59:00Z"
+    },
+    {
+      "name": "CPI Upside Surprise (Oct 2022: Act 10.1% vs Exp 9.8%)",
+      "start_date": "2022-10-19T06:00:00Z",
+      "end_date": "2022-10-19T23:59:00Z"
+    },
+    {
+      "name": "CPI Upside Surprise (Feb 2023: Act 10.4% vs Exp 9.9%)",
+      "start_date": "2023-03-15T07:00:00Z",
+      "end_date": "2023-03-15T23:59:00Z"
+    },
+    {
+      "name": "CPI Upside Surprise (Apr 2023: Act 8.7% vs Exp 8.2%)",
+      "start_date": "2023-05-24T06:00:00Z",
+      "end_date": "2023-05-24T23:59:00Z"
+    },
+    {
+      "name": "CPI Upside Surprise (Jun 2023: Act 8.7% vs Exp 8.4%)",
+      "start_date": "2023-06-21T06:00:00Z",
+      "end_date": "2023-06-21T23:59:00Z"
+    },
+    {
+      "name": "CPI Downside Surprise (Nov 2023: Act 3.9% vs Exp 4.4%)",
+      "start_date": "2023-12-20T07:00:00Z",
+      "end_date": "2023-12-20T23:59:00Z"
+    },
+    {
+      "name": "CPI Downside Surprise (Nov 2025: Act 3.2% vs Exp 3.5%)",
+      "start_date": "2025-12-17T07:00:00Z",
+      "end_date": "2025-12-17T23:59:00Z"
+    }
+  ],
+  "US_NFP_Divergence": [
+    { "name": "Apr 2004 (NFP 308k vs 123k Beat | UR 5.7% vs 5.6% Rise)", "start_date": "2004-04-02T13:30:00Z", "end_date": "2004-04-02T23:59:00Z" },
+    { "name": "May 2011 (NFP 244k vs 185k Beat | UR 9.0% vs 8.8% Rise)", "start_date": "2011-05-06T12:30:00Z", "end_date": "2011-05-06T23:59:00Z" },
+    { "name": "Aug 2012 (NFP 163k vs 100k Beat | UR 8.3% vs 8.2% Rise)", "start_date": "2012-08-03T12:30:00Z", "end_date": "2012-08-03T23:59:00Z" },
+    { "name": "Feb 2015 (NFP 257k vs 230k Beat | UR 5.7% vs 5.6% Rise)", "start_date": "2015-02-06T13:30:00Z", "end_date": "2015-02-06T23:59:00Z" },
+    { "name": "Jun 2015 (NFP 280k vs 225k Beat | UR 5.5% vs 5.4% Rise)", "start_date": "2015-06-05T12:30:00Z", "end_date": "2015-06-05T23:59:00Z" },
+    { "name": "Jul 2016 (NFP 287k vs 175k Beat | UR 4.9% vs 4.7% Rise)", "start_date": "2016-07-08T12:30:00Z", "end_date": "2016-07-08T23:59:00Z" },
+    { "name": "Jul 2017 (NFP 222k vs 179k Beat | UR 4.4% vs 4.3% Rise)", "start_date": "2017-07-07T12:30:00Z", "end_date": "2017-07-07T23:59:00Z" },
+    { "name": "Jul 2018 (NFP 213k vs 195k Beat | UR 4.0% vs 3.8% Rise)", "start_date": "2018-07-06T12:30:00Z", "end_date": "2018-07-06T23:59:00Z" },
+    { "name": "Jul 2019 (NFP 224k vs 160k Beat | UR 3.7% vs 3.6% Rise)", "start_date": "2019-07-05T12:30:00Z", "end_date": "2019-07-05T23:59:00Z" },
+    { "name": "Feb 2020 (NFP 225k vs 160k Beat | UR 3.6% vs 3.5% Rise)", "start_date": "2020-02-07T13:30:00Z", "end_date": "2020-02-07T23:59:00Z" },
+    { "name": "Jul 2021 (NFP 850k vs 700k Beat | UR 5.9% vs 5.8% Rise)", "start_date": "2021-07-02T12:30:00Z", "end_date": "2021-07-02T23:59:00Z" },
+    { "name": "Feb 2022 (NFP 467k vs 150k Beat | UR 4.0% vs 3.9% Rise)", "start_date": "2022-02-04T13:30:00Z", "end_date": "2022-02-04T23:59:00Z" },
+    { "name": "Sep 2022 (NFP 315k vs 300k Beat | UR 3.7% vs 3.5% Rise)", "start_date": "2022-09-02T12:30:00Z", "end_date": "2022-09-02T23:59:00Z" },
+    { "name": "Jun 2023 (NFP 339k vs 190k Beat | UR 3.7% vs 3.5% Rise)", "start_date": "2023-06-02T12:30:00Z", "end_date": "2023-06-02T23:59:00Z" },
+    { "name": "Sep 2023 (NFP 187k vs 170k Beat | UR 3.8% vs 3.5% Rise)", "start_date": "2023-09-01T12:30:00Z", "end_date": "2023-09-01T23:59:00Z" },
+    { "name": "Mar 2024 (NFP 275k vs 198k Beat | UR 3.9% vs 3.7% Rise)", "start_date": "2024-03-08T13:30:00Z", "end_date": "2024-03-08T23:59:00Z" },
+    { "name": "Jun 2024 (NFP 272k vs 180k Beat | UR 4.0% vs 3.9% Rise)", "start_date": "2024-06-07T12:30:00Z", "end_date": "2024-06-07T23:59:00Z" },
+    { "name": "Jul 2024 (NFP 206k vs 190k Beat | UR 4.1% vs 4.0% Rise)", "start_date": "2024-07-05T12:30:00Z", "end_date": "2024-07-05T23:59:00Z" },
+    { "name": "Sep 2025 (NFP 119k vs 50k Beat | UR 4.4% vs 4.3% Rise)", "start_date": "2025-11-20T13:30:00Z", "end_date": "2025-11-20T23:59:00Z" },
+    { "name": "Nov 2025 (NFP 64k vs 50k Beat | UR 4.6% vs 4.5% Rise)", "start_date": "2025-12-16T13:30:00Z", "end_date": "2025-12-16T23:59:00Z" }
   ]
 }

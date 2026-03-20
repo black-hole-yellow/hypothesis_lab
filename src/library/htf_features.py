@@ -861,6 +861,280 @@ def add_boe_hawkish_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
     df.drop(columns=['BoE_Hawkish_T0'], inplace=True)
     return df
 
+def add_uk_cpi_momentum_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
+    """
+    Отслеживает шоки UK CPI с дельтой > 0.3%.
+    Ждет закрытия первой 1-часовой свечи (T=0). 
+    Если T=0 бычья -> сигнал Long на T+1. Если T=0 медвежья -> сигнал Short на T+1.
+    """
+    df['CPI_Release_T0'] = 0
+    
+    cpi_events = [e for e in events if e.get('category') == 'UK_CPI_Shock']
+    
+    for event in cpi_events:
+        try:
+            dt = pd.to_datetime(event['start_date'])
+            dt = dt.tz_localize('UTC') if dt.tz is None else dt.tz_convert('UTC')
+            rounded_dt = dt.floor('h')
+            
+            if rounded_dt in df.index:
+                df.loc[rounded_dt, 'CPI_Release_T0'] = 1
+        except Exception as e:
+            pass
+            
+    # 1. We look 4 hours back to see if the news happened 4 hours ago
+    df['CPI_T4_Active'] = df['CPI_Release_T0'].shift(4).fillna(0)
+    
+    # 2. Determine direction: Compare current Close (after 4h) 
+    # to the Open price when the news actually broke (4 hours ago)
+    df['T4_Direction'] = np.where(df['Close'] >= df['Open'].shift(3), 1, -1)
+    
+    # 3. Signals now trigger only after the 4th hour closes
+    df['CPI_Momentum_Long'] = ((df['CPI_T4_Active'] == 1) & (df['T4_Direction'] == 1)).astype(int)
+    df['CPI_Momentum_Short'] = ((df['CPI_T4_Active'] == 1) & (df['T4_Direction'] == -1)).astype(int)
+    
+    # Очистка
+    df.drop(columns=['CPI_Release_T0', 'CPI_T4_Active', 'T4_Direction'], inplace=True)
+    return df
+
+def add_sovereign_risk_proxy_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
+    """
+    Ищет режим Sovereign Risk (Идиосинкразическая паника).
+    Условие: Политический шок + 4H ATR превышает 30-дневную норму в 2.5 раза.
+    Действие: Продаем после того, как сформировался 4-часовой восходящий отскок (Fade the 4H bounce).
+    """
+    # ФИКС ПАМЯТИ: Дефрагментируем DataFrame перед добавлением кучи новых колонок
+    df = df.copy()
+    
+    # 1. Считаем True Range (TR) и 4H ATR
+    df['TR'] = np.maximum(
+        df['High'] - df['Low'],
+        np.maximum(abs(df['High'] - df['Close'].shift(1)), abs(df['Low'] - df['Close'].shift(1)))
+    )
+    df['ATR_4H'] = df['TR'].rolling(window=4).mean()
+    df['ATR_30D_Avg'] = df['ATR_4H'].rolling(window=720).mean()
+    df['Vol_Anomaly'] = df['ATR_4H'] > (df['ATR_30D_Avg'] * 2.5)
+    
+    # 2. Размечаем окно Политического Шока
+    df['Pol_Shock_Active'] = 0
+    uk_shocks = [e for e in events if e.get('category') == 'UK_Political_Shock']
+    
+    for event in uk_shocks:
+        try:
+            start_dt = pd.to_datetime(event['start_date'])
+            start_dt = start_dt.tz_localize('UTC') if start_dt.tz is None else start_dt.tz_convert('UTC')
+            
+            end_dt = pd.to_datetime(event['end_date'])
+            end_dt = end_dt.tz_localize('UTC') if end_dt.tz is None else end_dt.tz_convert('UTC')
+            
+            mask = (df.index >= start_dt) & (df.index <= end_dt)
+            df.loc[mask, 'Pol_Shock_Active'] = 1
+        except Exception as e:
+            pass
+            
+    # 3. ЛОГИКА 4H ОТСКОКА: Вместо одной зеленой свечи, мы смотрим,
+    # выросла ли цена за последние 4 часа (Текущий Close > Open 3 свечи назад)
+    df['Is_4H_Bounce'] = df['Close'] > df['Open'].shift(3)
+    
+    # 4. ГЕНЕРАЦИЯ СИГНАЛА НА T+1
+    trigger_condition = (
+        (df['Pol_Shock_Active'].shift(1) == 1) & 
+        (df['Vol_Anomaly'].shift(1) == True) & 
+        (df['Is_4H_Bounce'].shift(1) == True)
+    )
+    
+    df['Sovereign_Risk_Short'] = trigger_condition.astype(int)
+    
+    # Очистка мусора
+    df.drop(columns=['TR', 'ATR_4H', 'ATR_30D_Avg', 'Vol_Anomaly', 'Pol_Shock_Active', 'Is_4H_Bounce'], inplace=True, errors='ignore')
+    
+    return df
+
+def add_weekend_gap_context(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Находит выходные дни (разрыв между свечами > 24 часов).
+    Считает размер гэпа открытия в пипсах.
+    Генерирует сигналы на возврат к среднему (Gap Fill) для гэпов > 40 пипсов.
+    """
+    # 1. Находим разницу во времени между свечами
+    time_diff = df.index.to_series().diff()
+    
+    # 2. Любой разрыв больше 24 часов - это открытие недели (Sunday/Monday Open)
+    is_week_open = time_diff > pd.Timedelta(hours=24)
+    
+    # 3. Считаем размер гэпа в пипсах (Open текущей свечи минус Close пятницы)
+    gap_pips = (df['Open'] - df['Close'].shift(1)) * 10000
+    
+    # 4. ТРИГГЕРЫ (Торгуем ПРОТИВ гэпа на его закрытие)
+    # Если гэп ВВЕРХ > 40 пипсов, цена перекуплена на панике -> ШОРТИМ
+    df['Gap_Up_Fade_Short'] = ((is_week_open) & (gap_pips >= 40)).astype(int)
+    
+    # Если гэп ВНИЗ > 40 пипсов (gap_pips <= -40) -> ЛОНГУЕМ
+    df['Gap_Down_Fade_Long'] = ((is_week_open) & (gap_pips <= -40)).astype(int)
+    
+    return df
+
+def add_boe_tone_shift_proxy_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
+    """
+    NLP Прокси: Ищет расхождение между текстом релиза и риторикой Губернатора.
+    Условие: T=0 (Стейтмент) - зеленая свеча. T+1 (Пресс-конференция) - красная свеча.
+    Действие: Шортим на закрытии T+1 (Fade the rally).
+    """
+    df = df.copy()
+    df['BoE_Release_T0'] = 0
+    
+    # 1. Используем наш существующий список ястребиных шоков
+    boe_events = [e for e in events if e.get('category') == 'BoE_Hawkish_Shock']
+    
+    for event in boe_events:
+        try:
+            dt = pd.to_datetime(event['start_date'])
+            dt = dt.tz_localize('UTC') if dt.tz is None else dt.tz_convert('UTC')
+            rounded_dt = dt.floor('h')
+            if rounded_dt in df.index:
+                df.loc[rounded_dt, 'BoE_Release_T0'] = 1
+        except Exception as e:
+            pass
+            
+    # 2. Логика Tone Shift (Отпечаток NLP)
+    # Направление текущей свечи
+    df['Is_Green'] = df['Close'] > df['Open']
+    df['Is_Red'] = df['Close'] < df['Open']
+    
+    # Смещаем данные, чтобы смотреть в прошлое на момент закрытия свечи пресс-конференции
+    df['Was_Release_T1'] = df['BoE_Release_T0'].shift(1).fillna(0)
+    df['Was_T1_Green'] = df['Is_Green'].shift(1).fillna(False)
+    
+    # 3. ТРИГГЕР: Час назад был релиз и он был зеленым, но ТЕКУЩАЯ свеча (выступление) красная!
+    trigger_condition = (
+        (df['Was_Release_T1'] == 1) & 
+        (df['Was_T1_Green'] == True) & 
+        (df['Is_Red'] == True)
+    )
+    
+    df['BoE_Tone_Shift_Short'] = trigger_condition.astype(int)
+    
+    # Очистка
+    df.drop(columns=['BoE_Release_T0', 'Is_Green', 'Is_Red', 'Was_Release_T1', 'Was_T1_Green'], inplace=True, errors='ignore')
+    
+    return df
+
+def add_macro_shock_inside_bar_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
+    """
+    ГИПОТЕЗА А (Макро): Ищет спайк >3 сигмы строго в первые 24 часа после внезапной новости.
+    """
+    df = df.copy()
+    
+    # Считаем метрики волатильности
+    df['TR_Local'] = np.maximum(
+        df['High'] - df['Low'],
+        np.maximum(abs(df['High'] - df['Close'].shift(1)), abs(df['Low'] - df['Close'].shift(1)))
+    )
+    df['TR_Mean'] = df['TR_Local'].rolling(window=720).mean()
+    df['TR_Std'] = df['TR_Local'].rolling(window=720).std()
+    df['Is_3SD_Spike'] = df['TR_Local'] > (df['TR_Mean'] + 3 * df['TR_Std'])
+    
+    # Жесткий фильтр: ТОЛЬКО 24 часа после старта события (Игнорируем end_date)
+    df['Strict_Macro_Window'] = 0
+    unscheduled_categories = ['Geopolitical_Shock', 'UK_Political_Shock']
+    target_events = [e for e in events if e.get('category') in unscheduled_categories]
+    
+    for event in target_events:
+        try:
+            start_dt = pd.to_datetime(event['start_date'])
+            start_dt = start_dt.tz_localize('UTC') if start_dt.tz is None else start_dt.tz_convert('UTC')
+            
+            # ФИКС БАГА: Принудительно задаем окно ровно в 24 часа
+            strict_end_dt = start_dt + pd.Timedelta(hours=24)
+            
+            mask = (df.index >= start_dt) & (df.index <= strict_end_dt)
+            df.loc[mask, 'Strict_Macro_Window'] = 1
+        except Exception as e:
+            pass
+            
+    if 'Realized_Vol' not in df.columns:
+        df['Realized_Vol'] = df['TR_Local'].rolling(window=4).mean() * 10000
+            
+    # Триггер: В окне макро-события случился аномальный спайк
+    trigger_condition = (
+        (df['Strict_Macro_Window'].shift(1) == 1) & 
+        (df['Is_3SD_Spike'].shift(1) == True)
+    )
+    
+    df['Macro_Inside_Bar_Short'] = trigger_condition.astype(int)
+    
+    df.drop(columns=['TR_Local', 'TR_Mean', 'TR_Std', 'Is_3SD_Spike', 'Strict_Macro_Window'], inplace=True, errors='ignore')
+    return df
+
+def add_pure_algo_vol_crush_context(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    ГИПОТЕЗА Б (Algo): Ищет спайк >3 сигмы в ЛЮБОЙ день (без привязки к макро-календарю)
+    и шортит волатильность на возврат к среднему (Mean Reversion).
+    """
+    df = df.copy()
+    
+    df['TR_Local'] = np.maximum(
+        df['High'] - df['Low'],
+        np.maximum(abs(df['High'] - df['Close'].shift(1)), abs(df['Low'] - df['Close'].shift(1)))
+    )
+    df['TR_Mean'] = df['TR_Local'].rolling(window=720).mean()
+    df['TR_Std'] = df['TR_Local'].rolling(window=720).std()
+    
+    # Триггер: Просто любой аномальный спайк
+    df['Is_3SD_Spike'] = df['TR_Local'] > (df['TR_Mean'] + 3 * df['TR_Std'])
+    
+    if 'Realized_Vol' not in df.columns:
+        df['Realized_Vol'] = df['TR_Local'].rolling(window=4).mean() * 10000
+        
+    df['Algo_Vol_Crush_Short'] = df['Is_3SD_Spike'].shift(1).fillna(0).astype(int)
+
+    df.drop(columns=['TR_Local', 'TR_Mean', 'TR_Std', 'Is_3SD_Spike'], inplace=True, errors='ignore')
+    return df
+
+def add_nfp_divergence_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
+    df = df.copy()
+    df['NFP_Level'] = np.nan
+    df['NFP_Initial_Dir'] = 0
+
+    nfp_events = [e for e in events if e.get('category') == 'US_NFP_Divergence']
+    
+    # Дебаггер: считаем, сколько событий успешно легло на график
+    matched_events = 0
+
+    for event in nfp_events:
+        try:
+            # ПРАВИЛЬНАЯ ОБРАБОТКА ЧАСОВЫХ ПОЯСОВ (Без крашей)
+            dt = pd.to_datetime(event['start_date'])
+            dt = dt.tz_localize('UTC') if dt.tz is None else dt.tz_convert('UTC')
+            rounded_dt = dt.floor('h')
+            
+            if rounded_dt in df.index:
+                matched_events += 1
+                # Запоминаем уровень открытия и направление первой свечи
+                df.loc[rounded_dt, 'NFP_Level'] = df.loc[rounded_dt, 'Open']
+                df.loc[rounded_dt, 'NFP_Initial_Dir'] = 1 if df.loc[rounded_dt, 'Close'] > df.loc[rounded_dt, 'Open'] else -1
+        except Exception as e:
+            print(f"❌ Ошибка парсинга NFP события {event.get('name')}: {e}")
+
+    # Печатаем результат в консоль при запуске
+    print(f"✅ РАДАР NFP: Успешно найдено {matched_events} из {len(nfp_events)} событий в данных.")
+
+    # Протягиваем уровень новости и направление на 5 часов вперед
+    df['NFP_Level'] = df['NFP_Level'].ffill(limit=5)
+    df['NFP_Initial_Dir'] = df['NFP_Initial_Dir'].ffill(limit=5)
+
+    # УСЛОВИЕ ВХОДА (Fade подтвержден)
+    df['NFP_Fade_Long'] = ((df['NFP_Initial_Dir'] == -1) & (df['Close'] > df['NFP_Level'])).astype(int)
+    df['NFP_Fade_Short'] = ((df['NFP_Initial_Dir'] == 1) & (df['Close'] < df['NFP_Level'])).astype(int)
+
+    # Берем только ПЕРВОЕ пересечение уровня, чтобы не было дублей
+    df['NFP_Fade_Long'] = ((df['NFP_Fade_Long'] == 1) & (df['NFP_Fade_Long'].shift(1) == 0)).astype(int)
+    df['NFP_Fade_Short'] = ((df['NFP_Fade_Short'] == 1) & (df['NFP_Fade_Short'].shift(1) == 0)).astype(int)
+
+    # Очистка
+    df.drop(columns=['NFP_Level', 'NFP_Initial_Dir'], inplace=True, errors='ignore')
+    return df
+
 def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int = 60) -> pd.DataFrame:
     """
     Calculates a 0-100% Bullish Trend Probability using HTF Confluence.

@@ -1,0 +1,45 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_024_WEEKEND_GAP_FILL",
+    "name": "Weekend Geopolitical Gap Fill",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Аномальные гэпы выходного дня (> 40 пипсов) создаются на тонком рынке из-за новостей. Когда в понедельник открывается Лондон, институциональная ликвидность возвращает цену к пятничному закрытию (100% Gap Fill)."
+  },
+  "universe": {
+    "instruments": ["GBPUSD"],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "Gap_Up_Fade_Short",
+      "Gap_Down_Fade_Long"
+    ]
+  },
+  "parameters": {},
+  "logic": {
+    "evaluation_metric": "Close",
+    "filters": [],
+    "entry_rules": {
+      "long_trigger": [
+        {
+          "comment": "Рынок открылся гэпом ВНИЗ > 40 пипсов. Покупаем для возврата к закрытию пятницы.",
+          "feature": "Gap_Down_Fade_Long",
+          "operator": ">",
+          "value": 0
+        }
+      ],
+      "short_trigger": [
+        {
+          "comment": "Рынок открылся гэпом ВВЕРХ > 40 пипсов. Продаем для возврата к закрытию пятницы.",
+          "feature": "Gap_Up_Fade_Short",
+          "operator": ">",
+          "value": 0
+        }
+      ]
+    },
+    "exit_rules": {
+      "max_hold_time_hours": 24
+    }
+  }
+}

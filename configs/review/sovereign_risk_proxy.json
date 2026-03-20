@@ -1,0 +1,39 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_025_SOVEREIGN_RISK_PROXY",
+    "name": "Sovereign Risk Panic Fade (4H Confirmation)",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "В режиме Sovereign Risk (политический шок + волатильность > 2.5x от нормы) рынок движется идиосинкразически. Краткосрочные откаты вверх используются крупными игроками для выхода из позиций. Данная стратегия дожидается подтвержденного 4-часового отскока (коррекции) и открывает шорт на возобновление падения."
+  },
+  "universe": {
+    "instruments": [
+      "GBPUSD"
+    ],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "Sovereign_Risk_Short"
+    ]
+  },
+  "parameters": {},
+  "logic": {
+    "evaluation_metric": "Close",
+    "filters": [],
+    "entry_rules": {
+      "long_trigger": [],
+      "short_trigger": [
+        {
+          "comment": "Режим паники активен + зафиксирован 4-часовой технический отскок вверх. Открываем шорт на поглощение отскока.",
+          "feature": "Sovereign_Risk_Short",
+          "operator": ">",
+          "value": 0
+        }
+      ]
+    },
+    "exit_rules": {
+      "max_hold_time_hours": 12
+    }
+  }
+}

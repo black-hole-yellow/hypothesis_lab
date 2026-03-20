@@ -1,0 +1,24 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_027B_PURE_VOL_CRUSH",
+    "name": "Algorithmic Volatility Crush (3SD Spike)",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Чистая количественная стратегия. Любой 1-часовой спайк >3σ (относительно 30-дневной нормы) является статистической аномалией. Рынок математически обязан вернуться к среднему диапазону в течение следующих 12 часов."
+  },
+  "universe": { "instruments": ["GBPUSD"], "resolution": "1h", "timezone": "UTC" },
+  "data_dependencies": { "required_features": ["Algo_Vol_Crush_Short"] },
+  "logic": {
+    "evaluation_metric": "Realized_Vol",
+    "filters": [],
+    "entry_rules": {
+      "long_trigger": [],
+      "short_trigger": [
+        {
+          "comment": "Обнаружена микроструктурная аномалия (>3 Сигмы). Вход на шорт волатильности.",
+          "feature": "Algo_Vol_Crush_Short", "operator": ">", "value": 0
+        }
+      ]
+    },
+    "exit_rules": { "max_hold_time_hours": 12 }
+  }
+}
