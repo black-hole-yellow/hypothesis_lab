@@ -20,18 +20,18 @@
     "evaluation_metric": "Realized_Vol", 
     "filters": [],
     "entry_rules": {
-      "long_trigger": [],
-      "short_trigger": [
+      "long_trigger": [
         {
-          "comment": "Экзит-поллы опубликованы. Шортим саму ВОЛАТИЛЬНОСТЬ.",
+          "comment": "Экзит-поллы опубликованы. Покупаем ВЗРЫВ Реализованной Волатильности (RV Spike).",
           "feature": "Election_Vol_Crush_Short",
           "operator": ">",
           "value": 0
         }
-      ]
+      ],
+      "short_trigger": []
     },
     "exit_rules": {
-      "max_hold_time_hours": 24
+      "max_hold_time_hours": 12
     }
   }
 }

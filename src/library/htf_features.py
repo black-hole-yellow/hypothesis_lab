@@ -791,6 +791,76 @@ def add_election_volatility_context(df: pd.DataFrame, events: list) -> pd.DataFr
     df['Election_Vol_Crush_Short'] = df['Election_Vol_Crush_Short'].fillna(0).astype(int)
     return df
 
+def add_uk_political_shock_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
+    """
+    Отслеживает негативные политические шоки UK.
+    Ждет 1 час (пока паника retail-трейдеров утихнет) и дает сигнал
+    на продолжение доминирующего 4H тренда.
+    """
+    df['UK_Shock_T0'] = 0
+    
+    # 1. Фильтруем события политических шоков
+    shock_events = [e for e in events if e.get('category') == 'UK_Political_Shock']
+    
+    for event in shock_events:
+        try:
+            dt = pd.to_datetime(event['start_date'])
+            if dt.tz is None:
+                dt = dt.tz_localize('UTC')
+            else:
+                dt = dt.tz_convert('UTC')
+                
+            rounded_dt = dt.floor('h')
+            
+            # Ставим маркер на час выхода новости
+            if rounded_dt in df.index:
+                df.loc[rounded_dt, 'UK_Shock_T0'] = 1
+        except Exception as e:
+            print(f"Skipping event {event.get('name')} due to error: {e}")
+            
+    # 2. СДВИГ ВРЕМЕНИ (Магия гипотезы):
+    # Мы ждем ровно 1 час (T+1), пока первая свеча закроется.
+    df['UK_Shock_T1'] = df['UK_Shock_T0'].shift(1).fillna(0)
+    
+    # 3. Фильтрация по тренду (с запасом для Trend Guard)
+    # Заходим в Лонг на T+1, если 4H тренд был Бычьим
+    df['UK_Shock_Cont_Long'] = ((df['UK_Shock_T1'] == 1) & (df['HTF_Bullish_Prob'] >= 55)).astype(int)
+    
+    # Заходим в Шорт на T+1, если 4H тренд был Медвежьим
+    df['UK_Shock_Cont_Short'] = ((df['UK_Shock_T1'] == 1) & (df['HTF_Bullish_Prob'] <= 45)).astype(int)
+    
+    # Убираем временные колонки, оставляем только готовые сигналы
+    df.drop(columns=['UK_Shock_T0', 'UK_Shock_T1'], inplace=True)
+    
+    return df
+
+def add_boe_hawkish_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
+    """
+    Отслеживает 'ястребиные' сюрпризы Банка Англии (BoE).
+    Генерирует сигнал на покупку (Long) для торговли Post-Announcement Drift.
+    """
+    df['BoE_Hawkish_T0'] = 0
+    
+    hawkish_events = [e for e in events if e.get('category') == 'BoE_Hawkish_Shock']
+    
+    for event in hawkish_events:
+        try:
+            dt = pd.to_datetime(event['start_date'])
+            dt = dt.tz_localize('UTC') if dt.tz is None else dt.tz_convert('UTC')
+            rounded_dt = dt.floor('h')
+            
+            if rounded_dt in df.index:
+                df.loc[rounded_dt, 'BoE_Hawkish_T0'] = 1
+        except Exception as e:
+            print(f"Skipping event {event.get('name')} due to error: {e}")
+            
+    # Конвертируем в Int для парсера
+    df['BoE_Hawkish_Long'] = df['BoE_Hawkish_T0'].fillna(0).astype(int)
+    
+    # Очистка
+    df.drop(columns=['BoE_Hawkish_T0'], inplace=True)
+    return df
+
 def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int = 60) -> pd.DataFrame:
     """
     Calculates a 0-100% Bullish Trend Probability using HTF Confluence.

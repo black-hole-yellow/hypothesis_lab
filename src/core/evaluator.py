@@ -28,7 +28,7 @@ class SignalEvaluator:
             return {'Hypothesis': self.hypothesis_name, 'Status': 'FAILED (Not enough data)', 'Frequency': freq}
 
         # 1. Forward Returns (1H, 4H, 12H, 24H)
-        horizons = [1, 4, 12, 24]
+        horizons = [1, 4, 12, 24, 48, 72]
         metrics = {
             'Hypothesis': self.hypothesis_name,
             'Frequency': freq,
@@ -62,9 +62,7 @@ class SignalEvaluator:
             # Information Coefficient (Spearman Rank)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-
-            # Information Coefficient (Spearman Rank)
-            ic, _ = spearmanr(eval_df['Signal'], eval_df[f'Fwd_Ret_{h}'])
+                ic, _ = spearmanr(eval_df['Signal'], eval_df[f'Fwd_Ret_{h}'])
 
             
             

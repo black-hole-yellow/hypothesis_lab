@@ -182,5 +182,119 @@
       "start_date": "2024-07-04T21:00:00Z",
       "end_date": "2024-07-05T23:00:00Z"
     }
+  ],
+  "UK_Political_Shock": [
+    {
+      "name": "Tony Blair Resignation Announcement",
+      "start_date": "2007-05-10T11:30:00Z",
+      "end_date": "2007-05-10T23:59:00Z"
+    },
+    {
+      "name": "2010 Hung Parliament Confirmation",
+      "start_date": "2010-05-07T04:00:00Z",
+      "end_date": "2010-05-07T23:59:00Z"
+    },
+    {
+      "name": "Gordon Brown Resignation Statement",
+      "start_date": "2010-05-10T16:00:00Z",
+      "end_date": "2010-05-10T23:59:00Z"
+    },
+    {
+      "name": "Brexit Vote Result (BBC Leave Call)",
+      "start_date": "2016-06-24T03:40:00Z",
+      "end_date": "2016-06-24T07:15:00Z"
+    },
+    {
+      "name": "Sajid Javid & Rishi Sunak Resignations",
+      "start_date": "2022-07-05T17:02:00Z",
+      "end_date": "2022-07-05T23:59:00Z"
+    },
+    {
+      "name": "Kwasi Kwarteng Mini-Budget Announcement",
+      "start_date": "2022-09-23T08:30:00Z",
+      "end_date": "2022-09-23T23:59:00Z"
+    },
+    {
+      "name": "Kwasi Kwarteng Dismissal (Sacking)",
+      "start_date": "2022-10-14T11:00:00Z",
+      "end_date": "2022-10-14T23:59:00Z"
+    }
+  ],
+  "BoE_Hawkish_Shock": [
+    {
+      "name": "Surprise 25bps Hike (to 6.0%)",
+      "start_date": "2000-01-13T12:00:00Z",
+      "end_date": "2000-01-13T23:59:00Z"
+    },
+    {
+      "name": "Surprise 25bps Hike (to 6.25%)",
+      "start_date": "2000-02-10T12:00:00Z",
+      "end_date": "2000-02-10T23:59:00Z"
+    },
+    {
+      "name": "Unexpected 25bps Hike (to 4.0%)",
+      "start_date": "2004-02-05T12:00:00Z",
+      "end_date": "2004-02-05T23:59:00Z"
+    },
+    {
+      "name": "August 25bps Hike (to 4.75%)",
+      "start_date": "2004-08-05T11:00:00Z",
+      "end_date": "2004-08-05T23:59:00Z"
+    },
+    {
+      "name": "Surprise August Hike (to 4.75%)",
+      "start_date": "2006-08-03T11:00:00Z",
+      "end_date": "2006-08-03T23:59:00Z"
+    },
+    {
+      "name": "Surprise January 25bps Hike (to 5.25%)",
+      "start_date": "2007-01-11T12:00:00Z",
+      "end_date": "2007-01-11T23:59:00Z"
+    },
+    {
+      "name": "May 25bps Hike (to 5.5%)",
+      "start_date": "2007-05-10T11:00:00Z",
+      "end_date": "2007-05-10T23:59:00Z"
+    },
+    {
+      "name": "July 25bps Hike (to 5.75%)",
+      "start_date": "2007-07-05T11:00:00Z",
+      "end_date": "2007-07-05T23:59:00Z"
+    },
+    {
+      "name": "First Hike in a Decade (7-2 vote)",
+      "start_date": "2017-11-02T12:00:00Z",
+      "end_date": "2017-11-02T23:59:00Z"
+    },
+    {
+      "name": "Unanimous Hike to 0.75% (9-0 vote)",
+      "start_date": "2018-08-02T11:00:00Z",
+      "end_date": "2018-08-02T23:59:00Z"
+    },
+    {
+      "name": "Surprise Dec 15bps Hike (8-1 vote)",
+      "start_date": "2021-12-16T12:00:00Z",
+      "end_date": "2021-12-16T23:59:00Z"
+    },
+    {
+      "name": "Hawkish 5-4 Split (4 members wanted 50bps)",
+      "start_date": "2022-02-03T12:00:00Z",
+      "end_date": "2022-02-03T23:59:00Z"
+    },
+    {
+      "name": "Surprise 50bps Hike (to 5.0%)",
+      "start_date": "2023-06-22T11:00:00Z",
+      "end_date": "2023-06-22T23:59:00Z"
+    },
+    {
+      "name": "Hawkish 6-3 Split (2 members wanted 50bps)",
+      "start_date": "2023-08-03T11:00:00Z",
+      "end_date": "2023-08-03T23:59:00Z"
+    },
+    {
+      "name": "Tight 5-4 Hawkish Hold",
+      "start_date": "2023-09-21T11:00:00Z",
+      "end_date": "2023-09-21T23:59:00Z"
+    }
   ]
 }

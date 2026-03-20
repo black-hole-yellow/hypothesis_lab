@@ -1,0 +1,45 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_021_UK_POL_SHOCK_CONT",
+    "name": "UK Political Shock Continuation",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Проверяет гипотезу: после выхода шоковой полит-новости в UK, максимальное искажение происходит в первые 60 минут. После закрытия этой свечи мы заходим в сторону макро-тренда 4H, поглощая ликвидность ритейла."
+  },
+  "universe": {
+    "instruments": ["GBPUSD"],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "UK_Shock_Cont_Long",
+      "UK_Shock_Cont_Short"
+    ]
+  },
+  "parameters": {},
+  "logic": {
+    "evaluation_metric": "Close",
+    "filters": [],
+    "entry_rules": {
+      "long_trigger": [
+        {
+          "comment": "Час после шока прошел, 4H тренд бычий. Покупаем.",
+          "feature": "UK_Shock_Cont_Long",
+          "operator": ">",
+          "value": 0
+        }
+      ],
+      "short_trigger": [
+        {
+          "comment": "Час после шока прошел, 4H тренд медвежий. Продаем.",
+          "feature": "UK_Shock_Cont_Short",
+          "operator": ">",
+          "value": 0
+        }
+      ]
+    },
+    "exit_rules": {
+      "max_hold_time_hours": 12
+    }
+  }
+}

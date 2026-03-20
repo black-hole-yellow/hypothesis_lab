@@ -10,9 +10,9 @@ from src.library.features import (
     add_volume_profile_features, add_volatility_zscore, add_confirmed_fractals
 )
 from src.library.htf_features import (
-    add_1d_swing_context, add_1w_level_rejection_context, add_1w_swing_context, add_asia_fvg_protection_context, add_asian_sr_alignment_context, add_election_volatility_context, 
+    add_1d_swing_context, add_1w_level_rejection_context, add_1w_swing_context, add_asia_fvg_protection_context, add_asian_sr_alignment_context, add_boe_hawkish_context, add_election_volatility_context, 
     add_fvg_sr_confluence_context, add_geopolitical_shock_context, add_htf_trend_probability, 
-    add_fvg_order_flow_context, add_london_counter_fractal_context, add_london_pdh_pdl_sweep_context, add_ny_sr_touch_context, add_previous_boundaries, add_weekly_floor_context, calculate_multi_tf_fvgs, 
+    add_fvg_order_flow_context, add_london_counter_fractal_context, add_london_pdh_pdl_sweep_context, add_ny_sr_touch_context, add_previous_boundaries, add_uk_political_shock_context, add_weekly_floor_context, calculate_multi_tf_fvgs, 
     add_asian_sweep_context, add_ny_expansion_context, 
     add_weekly_swing_context
 )
@@ -114,6 +114,8 @@ class LabEngine:
         events = load_macro_events()
         self.df = add_geopolitical_shock_context(self.df, events)
         self.df = add_election_volatility_context(self.df, events)
+        self.df = add_uk_political_shock_context(self.df, events)
+        self.df = add_boe_hawkish_context(self.df, events)
 
     def run_hypothesis(self, hypothesis):
         """Simulates the environment row-by-row for the strategy."""
@@ -137,7 +139,11 @@ class LabEngine:
                 trend_prob = row.get('HTF_Bullish_Prob', 50.0)
                 direction = new_trade.get('Direction', '') 
                 
-                is_shock = (row.get('Geo_Shock_Short', 0) == 1) or (row.get('Election_Vol_Crush_Short', 0) == 1)
+                is_shock = (
+                    row.get('Geo_Shock_Short', 0) == 1 or 
+                    row.get('Election_Vol_Crush_Short', 0) == 1 or
+                    row.get('BoE_Hawkish_Long', 0) == 1
+                )
                 
                 # The Rules of the Guard:
                 if not is_shock:
