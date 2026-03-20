@@ -10,9 +10,9 @@ from src.library.features import (
     add_volume_profile_features, add_volatility_zscore, add_confirmed_fractals
 )
 from src.library.htf_features import (
-    add_1d_swing_context, add_1w_level_rejection_context, add_1w_swing_context, add_asia_fvg_protection_context, add_asian_sr_alignment_context, add_boe_hawkish_context, add_boe_tone_shift_proxy_context, add_election_volatility_context, 
+    add_1d_swing_context, add_1w_level_rejection_context, add_1w_swing_context, add_asia_fvg_protection_context, add_asian_sr_alignment_context, add_boe_hawkish_context, add_boe_tone_shift_proxy_context, add_cb_divergence_state_context, add_cpi_match_mean_reversion_context, add_election_volatility_context, 
     add_fvg_sr_confluence_context, add_geopolitical_shock_context, add_htf_trend_probability, 
-    add_fvg_order_flow_context, add_london_counter_fractal_context, add_london_pdh_pdl_sweep_context, add_macro_shock_inside_bar_context, add_nfp_divergence_context, add_ny_sr_touch_context, add_previous_boundaries, add_pure_algo_vol_crush_context, add_sovereign_risk_proxy_context, add_uk_cpi_momentum_context, add_uk_political_shock_context, add_weekend_gap_context, add_weekly_floor_context, calculate_multi_tf_fvgs, 
+    add_fvg_order_flow_context, add_london_counter_fractal_context, add_london_pdh_pdl_sweep_context, add_macro_shock_inside_bar_context, add_nfp_divergence_context, add_nfp_revision_trap_context, add_ny_sr_touch_context, add_previous_boundaries, add_pure_algo_vol_crush_context, add_sovereign_risk_proxy_context, add_uk_cpi_momentum_context, add_uk_political_shock_context, add_weekend_gap_context, add_weekly_floor_context, calculate_multi_tf_fvgs, 
     add_asian_sweep_context, add_ny_expansion_context, 
     add_weekly_swing_context
 )
@@ -123,6 +123,9 @@ class LabEngine:
         self.df = add_macro_shock_inside_bar_context(self.df, events)
         self.df = add_pure_algo_vol_crush_context(self.df)
         self.df = add_nfp_divergence_context(self.df, events)
+        self.df = add_nfp_revision_trap_context(self.df, events)
+        self.df = add_cpi_match_mean_reversion_context(self.df, events)
+        self.df = add_cb_divergence_state_context(self.df, events)
 
     def run_hypothesis(self, hypothesis):
         """Simulates the environment row-by-row for the strategy."""
@@ -160,7 +163,13 @@ class LabEngine:
                     row.get('Macro_Inside_Bar_Short', 0) == 1 or
                     row.get('Algo_Vol_Crush_Short', 0) == 1 or
                     row.get('NFP_Fade_Long', 0) == 1 or
-                    row.get('NFP_Fade_Short', 0) == 1
+                    row.get('NFP_Fade_Short', 0) == 1 or
+                    row.get('NFP_Resumption_Long', 0) == 1 or
+                    row.get('NFP_Resumption_Short', 0) == 1 or
+                    row.get('CPI_Match_Fade_Short', 0) == 1 or
+                    row.get('CPI_Match_Fade_Long', 0) == 1 or
+                    row.get('CB_Divergence_Long', 0) == 1 or
+                    row.get('CB_Divergence_Short', 0) == 1
                 )
                 
                 # The Rules of the Guard:

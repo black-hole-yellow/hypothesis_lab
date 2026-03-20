@@ -365,5 +365,83 @@
     { "name": "Jul 2024 (NFP 206k vs 190k Beat | UR 4.1% vs 4.0% Rise)", "start_date": "2024-07-05T12:30:00Z", "end_date": "2024-07-05T23:59:00Z" },
     { "name": "Sep 2025 (NFP 119k vs 50k Beat | UR 4.4% vs 4.3% Rise)", "start_date": "2025-11-20T13:30:00Z", "end_date": "2025-11-20T23:59:00Z" },
     { "name": "Nov 2025 (NFP 64k vs 50k Beat | UR 4.6% vs 4.5% Rise)", "start_date": "2025-12-16T13:30:00Z", "end_date": "2025-12-16T23:59:00Z" }
-  ]
+  ],
+  "US_NFP_Revision_Trap": [
+    { "name": "Jan 2004 (Headline Beat 308k | Rev -26k)", "start_date": "2004-04-02T13:30:00Z", "end_date": "2004-04-02T23:59:00Z" },
+    { "name": "Jun 2007 (Headline Beat 132k | Rev -45k)", "start_date": "2007-07-06T12:30:00Z", "end_date": "2007-07-06T23:59:00Z" },
+    { "name": "May 2011 (Headline Beat 244k | Rev -25k)", "start_date": "2011-05-06T12:30:00Z", "end_date": "2011-05-06T23:59:00Z" },
+    { "name": "Apr 2013 (Headline Beat 165k | Rev -30k)", "start_date": "2013-05-03T12:30:00Z", "end_date": "2013-05-03T23:59:00Z" },
+    { "name": "Oct 2015 (Headline Beat 271k | Rev -20k)", "start_date": "2015-11-06T13:30:00Z", "end_date": "2015-11-06T23:59:00Z" },
+    { "name": "Jul 2017 (Headline Beat 222k | Rev -35k)", "start_date": "2017-07-07T12:30:00Z", "end_date": "2017-07-07T23:59:00Z" },
+    { "name": "Oct 2018 (Headline Beat 250k | Rev -33k)", "start_date": "2018-11-02T12:30:00Z", "end_date": "2018-11-02T23:59:00Z" },
+    { "name": "May 2019 (Headline Beat 175k | Rev -23k)", "start_date": "2019-06-07T12:30:00Z", "end_date": "2019-06-07T23:59:00Z" },
+    { "name": "Jun 2021 (Headline Beat 850k | Rev -44k)", "start_date": "2021-07-02T12:30:00Z", "end_date": "2021-07-02T23:59:00Z" },
+    { "name": "Aug 2023 (Headline Beat 187k | Rev -110k)", "start_date": "2023-09-01T12:30:00Z", "end_date": "2023-09-01T23:59:00Z" },
+    { "name": "Oct 2023 (Headline Beat 336k | Rev -25k)", "start_date": "2023-10-06T12:30:00Z", "end_date": "2023-10-06T23:59:00Z" },
+    { "name": "Jan 2024 (Headline Beat 216k | Rev -71k)", "start_date": "2024-01-05T13:30:00Z", "end_date": "2024-01-05T23:59:00Z" },
+    { "name": "Feb 2024 (Headline Beat 275k | Rev -124k)", "start_date": "2024-03-08T13:30:00Z", "end_date": "2024-03-08T23:59:00Z" },
+    { "name": "May 2024 (Headline Beat 272k | Rev -15k mixed - prior months weak)", "start_date": "2024-06-07T12:30:00Z", "end_date": "2024-06-07T23:59:00Z" },
+    { "name": "Jun 2024 (Headline Beat 206k | Rev -57k)", "start_date": "2024-07-05T12:30:00Z", "end_date": "2024-07-05T23:59:00Z" },
+    { "name": "Jan 2025 (Headline Beat 185k | Rev -42k)", "start_date": "2025-02-07T13:30:00Z", "end_date": "2025-02-07T23:59:00Z" },
+    { "name": "Jul 2025 (Headline Beat 140k | Rev -31k)", "start_date": "2025-08-01T12:30:00Z", "end_date": "2025-08-01T23:59:00Z" },
+    { "name": "Nov 2025 (Headline Beat 210k | Rev -68k)", "start_date": "2025-12-05T13:30:00Z", "end_date": "2025-12-05T23:59:00Z" },
+    { "name": "Jan 2026 (Headline Beat 192k | Rev -39k)", "start_date": "2026-02-06T13:30:00Z", "end_date": "2026-02-06T23:59:00Z" }
+  ],
+  "US_CPI_Match": [
+    { "name": "May 2004 CPI (In-line 0.2%)", "start_date": "2004-05-14T12:30:00Z", "end_date": "2004-05-14T23:59:00Z" },
+    { "name": "Oct 2006 CPI (In-line -0.5%)", "start_date": "2006-10-18T12:30:00Z", "end_date": "2006-10-18T23:59:00Z" },
+    { "name": "Feb 2010 CPI (In-line 0.2%)", "start_date": "2010-02-19T13:30:00Z", "end_date": "2010-02-19T23:59:00Z" },
+    { "name": "Aug 2013 CPI (In-line 0.2%)", "start_date": "2013-08-15T12:30:00Z", "end_date": "2013-08-15T23:59:00Z" },
+    { "name": "Jan 2015 CPI (In-line -0.4%)", "start_date": "2015-01-16T13:30:00Z", "end_date": "2015-01-16T23:59:00Z" },
+    { "name": "Feb 2017 CPI (In-line 0.6%)", "start_date": "2017-02-15T13:30:00Z", "end_date": "2017-02-15T23:59:00Z" },
+    { "name": "Jan 2018 CPI (In-line)", "start_date": "2018-02-14T13:30:00Z", "end_date": "2018-02-14T23:59:00Z" },
+    { "name": "Jul 2018 CPI (In-line)", "start_date": "2018-08-10T12:30:00Z", "end_date": "2018-08-10T23:59:00Z" },
+    { "name": "Sep 2019 CPI (In-line)", "start_date": "2019-10-10T12:30:00Z", "end_date": "2019-10-10T23:59:00Z" },
+    { "name": "Feb 2020 CPI (In-line 0.1%)", "start_date": "2020-03-11T12:30:00Z", "end_date": "2020-03-11T23:59:00Z" },
+    { "name": "Aug 2021 CPI (In-line 5.3%)", "start_date": "2021-09-14T12:30:00Z", "end_date": "2021-09-14T23:59:00Z" },
+    { "name": "Dec 2021 CPI (In-line 7.0%)", "start_date": "2022-01-12T13:30:00Z", "end_date": "2022-01-12T23:59:00Z" },
+    { "name": "Jul 2023 CPI (In-line 3.2%)", "start_date": "2023-08-10T12:30:00Z", "end_date": "2023-08-10T23:59:00Z" },
+    { "name": "Nov 2023 CPI (In-line 3.1%)", "start_date": "2023-12-12T13:30:00Z", "end_date": "2023-12-12T23:59:00Z" },
+    { "name": "May 2024 CPI (In-line 3.3%)", "start_date": "2024-06-12T12:30:00Z", "end_date": "2024-06-12T23:59:00Z" },
+    { "name": "Oct 2024 CPI (In-line 2.4%)", "start_date": "2024-10-10T12:30:00Z", "end_date": "2024-10-10T23:59:00Z" },
+    { "name": "Jan 2025 CPI (In-line 2.6%)", "start_date": "2025-01-15T13:30:00Z", "end_date": "2025-01-15T23:59:00Z" },
+    { "name": "Apr 2025 CPI (In-line 2.4%)", "start_date": "2025-04-10T12:30:00Z", "end_date": "2025-04-10T23:59:00Z" },
+    { "name": "Feb 2026 CPI (In-line 2.1%)", "start_date": "2026-02-13T13:30:00Z", "end_date": "2026-02-13T23:59:00Z" }
+  ],
+  "Fed_Significant_Probability_Shift": [
+    { "name": "March 2020 Covid Emergency - Cut prob from ~25% to 85% (emergency cut)", "start_date": "2020-03-03T13:30:00Z", "end_date": "2020-03-03T23:59:00Z" },
+
+    { "name": "November 2021 Hot CPI - Hike prob from 0% to 65% (first hike pricing)", "start_date": "2021-11-10T13:30:00Z", "end_date": "2021-11-10T23:59:00Z" },
+
+    { "name": "March 2022 Russia invasion + CPI - Hike prob to 90% for May", "start_date": "2022-03-09T13:30:00Z", "end_date": "2022-03-09T23:59:00Z" },
+
+    { "name": "June 2022 Peak Inflation - 75bp hike prob jumps to 80%", "start_date": "2022-06-10T13:30:00Z", "end_date": "2022-06-10T23:59:00Z" },
+
+    { "name": "October 2022 Last Big Hike - Prob of 75bp to 0%, pivot begins", "start_date": "2022-10-12T12:30:00Z", "end_date": "2022-10-12T23:59:00Z" },
+
+    { "name": "July 2023 Last Hike - Prob of pause jumps from 40% to 85%", "start_date": "2023-07-26T13:30:00Z", "end_date": "2023-07-26T23:59:00Z" },
+
+    { "name": "September 2024 First Cut Pricing - Cut prob from 15% to 70%", "start_date": "2024-09-11T12:30:00Z", "end_date": "2024-09-11T23:59:00Z" },
+
+    { "name": "January 2025 Hot Data - Cut prob drops from 85% to 35%", "start_date": "2025-01-15T13:30:00Z", "end_date": "2025-01-15T23:59:00Z" },
+
+    { "name": "April 2025 CPI Surprise - Hike prob appears 25%", "start_date": "2025-04-10T12:30:00Z", "end_date": "2025-04-10T23:59:00Z" },
+
+    { "name": "March 2026 Oil Shock - Cut prob for 2026 drops from 70% to 25%", "start_date": "2026-03-10T13:30:00Z", "end_date": "2026-03-10T23:59:00Z" }
+
+],
+"BoE_Significant_Probability_Shift": [
+
+    { "name": "November 2021 Inflation Surge - Hike prob from 10% to 75%", "start_date": "2021-11-17T00:00:00Z", "end_date": "2021-11-17T23:59:00Z" },
+
+    { "name": "June 2022 Peak Inflation - Hike prob to 95% for 0.5%", "start_date": "2022-06-22T00:00:00Z", "end_date": "2022-06-22T23:59:00Z" },
+
+    { "name": "August 2024 First Cut Pricing - Cut prob jumps from 20% to 80%", "start_date": "2024-08-01T00:00:00Z", "end_date": "2024-08-01T23:59:00Z" },
+
+    { "name": "November 2024 MPC Split - Cut prob for Dec from 40% to 75%", "start_date": "2024-11-07T00:00:00Z", "end_date": "2024-11-07T23:59:00Z" },
+
+    { "name": "February 2025 Dovish Shift - Multiple cuts priced in", "start_date": "2025-02-06T00:00:00Z", "end_date": "2025-02-06T23:59:00Z" },
+
+    { "name": "March 2026 Middle East War/Oil Shock - Cut prob collapses, hike prob appears ~40%", "start_date": "2026-03-10T00:00:00Z", "end_date": "2026-03-10T23:59:00Z" }
+]
 }

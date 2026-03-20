@@ -1094,45 +1094,184 @@ def add_pure_algo_vol_crush_context(df: pd.DataFrame) -> pd.DataFrame:
 def add_nfp_divergence_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
     df = df.copy()
     df['NFP_Level'] = np.nan
-    df['NFP_Initial_Dir'] = 0
+    
+    # ФИКС ЗДЕСЬ: Было 0, стало np.nan. Теперь ffill сможет протянуть данные!
+    df['NFP_Initial_Dir'] = np.nan 
 
     nfp_events = [e for e in events if e.get('category') == 'US_NFP_Divergence']
-    
-    # Дебаггер: считаем, сколько событий успешно легло на график
     matched_events = 0
 
     for event in nfp_events:
         try:
-            # ПРАВИЛЬНАЯ ОБРАБОТКА ЧАСОВЫХ ПОЯСОВ (Без крашей)
             dt = pd.to_datetime(event['start_date'])
             dt = dt.tz_localize('UTC') if dt.tz is None else dt.tz_convert('UTC')
             rounded_dt = dt.floor('h')
             
             if rounded_dt in df.index:
                 matched_events += 1
-                # Запоминаем уровень открытия и направление первой свечи
                 df.loc[rounded_dt, 'NFP_Level'] = df.loc[rounded_dt, 'Open']
+                # Сохраняем 1 (рост) или -1 (падение)
                 df.loc[rounded_dt, 'NFP_Initial_Dir'] = 1 if df.loc[rounded_dt, 'Close'] > df.loc[rounded_dt, 'Open'] else -1
         except Exception as e:
-            print(f"❌ Ошибка парсинга NFP события {event.get('name')}: {e}")
+            pass
 
-    # Печатаем результат в консоль при запуске
-    print(f"✅ РАДАР NFP: Успешно найдено {matched_events} из {len(nfp_events)} событий в данных.")
-
-    # Протягиваем уровень новости и направление на 5 часов вперед
+    # Протягиваем уровень и направление вперед на 5 часов (теперь это сработает!)
     df['NFP_Level'] = df['NFP_Level'].ffill(limit=5)
     df['NFP_Initial_Dir'] = df['NFP_Initial_Dir'].ffill(limit=5)
 
-    # УСЛОВИЕ ВХОДА (Fade подтвержден)
+    # УСЛОВИЕ ВХОДА (Fade подтвержден пробоем уровня открытия)
     df['NFP_Fade_Long'] = ((df['NFP_Initial_Dir'] == -1) & (df['Close'] > df['NFP_Level'])).astype(int)
     df['NFP_Fade_Short'] = ((df['NFP_Initial_Dir'] == 1) & (df['Close'] < df['NFP_Level'])).astype(int)
 
-    # Берем только ПЕРВОЕ пересечение уровня, чтобы не было дублей
+    # Берем только ПЕРВОЕ пересечение уровня
     df['NFP_Fade_Long'] = ((df['NFP_Fade_Long'] == 1) & (df['NFP_Fade_Long'].shift(1) == 0)).astype(int)
     df['NFP_Fade_Short'] = ((df['NFP_Fade_Short'] == 1) & (df['NFP_Fade_Short'].shift(1) == 0)).astype(int)
 
     # Очистка
     df.drop(columns=['NFP_Level', 'NFP_Initial_Dir'], inplace=True, errors='ignore')
+    return df
+
+def add_nfp_revision_trap_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
+    """
+    Торгует ловушки NFP (Beat + Negative Revision).
+    Ждет возврата цены к уровню открытия новости в течение 4 часов.
+    Оценивает максимальный профит (MFE) за последующие 6 часов.
+    """
+    df = df.copy()
+    df['Trap_Level'] = np.nan
+    df['Trap_Initial_Dir'] = np.nan 
+
+    trap_events = [e for e in events if e.get('category') == 'US_NFP_Revision_Trap']
+    matched_events = 0
+
+    for event in trap_events:
+        try:
+            dt = pd.to_datetime(event['start_date'])
+            dt = dt.tz_localize('UTC') if dt.tz is None else dt.tz_convert('UTC')
+            rounded_dt = dt.floor('h')
+            
+            if rounded_dt in df.index:
+                matched_events += 1
+                df.loc[rounded_dt, 'Trap_Level'] = df.loc[rounded_dt, 'Open']
+                df.loc[rounded_dt, 'Trap_Initial_Dir'] = 1 if df.loc[rounded_dt, 'Close'] > df.loc[rounded_dt, 'Open'] else -1
+        except Exception as e:
+            pass
+
+    print(f"✅ РАДАР REVISION TRAP: Найдено {matched_events} из {len(trap_events)} событий.")
+
+    # Протягиваем уровень и направление вперед ровно на 4 ЧАСА
+    df['Trap_Level'] = df['Trap_Level'].ffill(limit=4)
+    df['Trap_Initial_Dir'] = df['Trap_Initial_Dir'].ffill(limit=4)
+
+    # ПЕРЕВЕРНУТАЯ ЛОГИКА (TREND RESUMPTION)
+    # Исходный импульс ВНИЗ (-1) + Откат вверх (Close > Level) = ШОРТ
+    df['NFP_Resumption_Short'] = ((df['Trap_Initial_Dir'] == -1) & (df['Close'] > df['Trap_Level'])).astype(int)
+
+    # Исходный импульс ВВЕРХ (1) + Откат вниз (Close < Level) = ЛОНГ
+    df['NFP_Resumption_Long'] = ((df['Trap_Initial_Dir'] == 1) & (df['Close'] < df['Trap_Level'])).astype(int)
+
+    # Защита от дублей (берем только первый пробой)
+    df['NFP_Resumption_Short'] = ((df['NFP_Resumption_Short'] == 1) & (df['NFP_Resumption_Short'].shift(1) == 0)).astype(int)
+    df['NFP_Resumption_Long'] = ((df['NFP_Resumption_Long'] == 1) & (df['NFP_Resumption_Long'].shift(1) == 0)).astype(int)
+
+    # Очистка
+    df.drop(columns=['Trap_Level', 'Trap_Initial_Dir'], inplace=True, errors='ignore')
+    
+    return df
+
+def add_cpi_match_mean_reversion_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
+    """
+    Отрабатывает гипотезу "Volatility Crush" на CPI.
+    Если CPI совпадает с прогнозом, цена возвращается к открытию Лондона (08:00 UTC).
+    """
+    df = df.copy()
+    df['CPI_Match_Fade_Short'] = 0
+    df['CPI_Match_Fade_Long'] = 0
+    
+    cpi_events = [e for e in events if e.get('category') == 'US_CPI_Match']
+    matched_events = 0
+
+    for event in cpi_events:
+        try:
+            # Время релиза CPI
+            dt = pd.to_datetime(event['start_date'])
+            dt = dt.tz_localize('UTC') if dt.tz is None else dt.tz_convert('UTC')
+            rounded_dt = dt.floor('h')
+            
+            # Находим время открытия Лондона (08:00 UTC) в ТОТ ЖЕ ДЕНЬ
+            date_str = rounded_dt.strftime('%Y-%m-%d')
+            london_open_dt = pd.to_datetime(f"{date_str} 08:00:00").tz_localize('UTC')
+            
+            if rounded_dt in df.index and london_open_dt in df.index:
+                matched_events += 1
+                london_anchor_price = df.loc[london_open_dt, 'Open']
+                pre_cpi_price = df.loc[rounded_dt, 'Open']
+                
+                # ЛОГИКА ВОЗВРАТА:
+                # Если цена выросла с открытия Лондона до CPI -> Шортим обратно к якорю
+                if pre_cpi_price > london_anchor_price:
+                    df.loc[rounded_dt, 'CPI_Match_Fade_Short'] = 1
+                
+                # Если цена упала с открытия Лондона до CPI -> Лонгуем обратно к якорю
+                elif pre_cpi_price < london_anchor_price:
+                    df.loc[rounded_dt, 'CPI_Match_Fade_Long'] = 1
+                    
+        except Exception as e:
+            pass
+            
+    print(f"✅ РАДАР CPI MATCH: Найдено {matched_events} из {len(cpi_events)} событий '0 Delta'.")
+
+    return df
+
+def add_cb_divergence_state_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
+    df = df.copy()
+    df['Fed_State'] = np.nan
+    df['BoE_State'] = np.nan
+    df['Divergence_Trigger'] = 0
+    
+    # 1. Парсим ФРС
+    fed_events = [e for e in events if e.get('category') == 'Fed_Significant_Probability_Shift']
+    for event in fed_events:
+        try:
+            dt = pd.to_datetime(event['start_date']).tz_localize('UTC') if pd.to_datetime(event['start_date']).tz is None else pd.to_datetime(event['start_date']).tz_convert('UTC')
+            dt = dt.floor('h')
+            if dt in df.index:
+                # Читаем контекст из названия
+                name = event['name'].lower()
+                if 'cut prob from' in name and 'drops' not in name or 'emergency cut' in name or 'pivot' in name:
+                    df.loc[dt, 'Fed_State'] = -1 # Dovish
+                else:
+                    df.loc[dt, 'Fed_State'] = 1  # Hawkish
+        except: pass
+
+    # 2. Парсим Банк Англии
+    boe_events = [e for e in events if e.get('category') == 'BoE_Significant_Probability_Shift']
+    for event in boe_events:
+        try:
+            dt = pd.to_datetime(event['start_date']).tz_localize('UTC') if pd.to_datetime(event['start_date']).tz is None else pd.to_datetime(event['start_date']).tz_convert('UTC')
+            dt = dt.floor('h')
+            if dt in df.index:
+                name = event['name'].lower()
+                if 'cut prob' in name and 'collapses' not in name or 'dovish' in name:
+                    df.loc[dt, 'BoE_State'] = -1 # Dovish
+                else:
+                    df.loc[dt, 'BoE_State'] = 1  # Hawkish
+        except: pass
+
+    # 3. State Machine: Протягиваем состояния вперед (память рынка)
+    df['Fed_State'] = df['Fed_State'].ffill()
+    df['BoE_State'] = df['BoE_State'].ffill()
+
+    # 4. ТРИГГЕР: Ищем момент, когда BoE "Ястреб" (+1), а ФРС "Голубь" (-1)
+    # Сделка открывается ТОЛЬКО в момент смены состояния (чтобы не спамить)
+    is_bullish_divergence = (df['BoE_State'] == 1) & (df['Fed_State'] == -1)
+    df['CB_Divergence_Long'] = (is_bullish_divergence & (~is_bullish_divergence.shift(1).fillna(False))).astype(int)
+
+    # Триггер на Шорт: BoE "Голубь" (-1), а ФРС "Ястреб" (+1)
+    is_bearish_divergence = (df['BoE_State'] == -1) & (df['Fed_State'] == 1)
+    df['CB_Divergence_Short'] = (is_bearish_divergence & (~is_bearish_divergence.shift(1).fillna(False))).astype(int)
+
+    df.drop(columns=['Fed_State', 'BoE_State'], inplace=True)
     return df
 
 def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int = 60) -> pd.DataFrame:
