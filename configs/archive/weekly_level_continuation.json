@@ -6,7 +6,9 @@
     "rationale": "Тестирует контртрендовые откаты к уровням прошлой недели (PWL/PWH). Если цена формирует там фрактал, а глобальный тренд указывает в противоположную сторону, мы заходим на продолжение макро-тренда."
   },
   "universe": {
-    "instruments": ["GBPUSD"],
+    "instruments": [
+      "GBPUSD"
+    ],
     "resolution": "1h",
     "timezone": "UTC"
   },
@@ -39,6 +41,12 @@
     },
     "exit_rules": {
       "max_hold_time_hours": 24
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
     }
   }
 }

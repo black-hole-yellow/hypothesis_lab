@@ -5,16 +5,45 @@
     "author": "Quant_Lab_Alpha",
     "rationale": "В среду маркет-мейкеры часто инициируют ложные пробои максимумов или минимумов вторника для сбора стоп-лоссов розничных трейдеров. Если на часовом графике происходит прокол экстремума предыдущего дня с последующим закрытием внутри диапазона (Rejection), мы входим в сторону возврата к среднему."
   },
-  "universe": { "instruments": ["GBPUSD"], "resolution": "1h", "timezone": "UTC" },
+  "universe": {
+    "instruments": [
+      "GBPUSD"
+    ],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
   "data_dependencies": {
-    "required_features": ["Wed_Fakeout_Long", "Wed_Fakeout_Short"]
+    "required_features": [
+      "Wed_Fakeout_Long",
+      "Wed_Fakeout_Short"
+    ]
   },
   "logic": {
     "evaluation_metric": "Close",
     "entry_rules": {
-      "long_trigger": [{ "feature": "Wed_Fakeout_Long", "operator": ">", "value": 0 }],
-      "short_trigger": [{ "feature": "Wed_Fakeout_Short", "operator": ">", "value": 0 }]
+      "long_trigger": [
+        {
+          "feature": "Wed_Fakeout_Long",
+          "operator": ">",
+          "value": 0
+        }
+      ],
+      "short_trigger": [
+        {
+          "feature": "Wed_Fakeout_Short",
+          "operator": ">",
+          "value": 0
+        }
+      ]
     },
-    "exit_rules": { "max_hold_time_hours": 24 }
+    "exit_rules": {
+      "max_hold_time_hours": 24
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
+    }
   }
 }

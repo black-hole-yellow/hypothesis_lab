@@ -6,22 +6,45 @@
     "rationale": "Торговля ложного пробоя Азиатской сессии с жестким риск-менеджментом. Стоп-лосс ставится за экстремум лондонской манипуляции, Тейк-профит автоматически рассчитывается как 2R."
   },
   "universe": {
-    "instruments": ["GBPUSD"],
+    "instruments": [
+      "GBPUSD"
+    ],
     "resolution": "1h",
     "timezone": "UTC"
   },
   "data_dependencies": {
-    "required_features": ["Judas_Short", "Judas_Long"]
+    "required_features": [
+      "Judas_Short",
+      "Judas_Long"
+    ]
   },
   "logic": {
     "evaluation_metric": "Close",
     "entry_rules": {
-      "long_trigger": [{ "feature": "Judas_Long", "operator": ">", "value": 0 }],
-      "short_trigger": [{ "feature": "Judas_Short", "operator": ">", "value": 0 }]
+      "long_trigger": [
+        {
+          "feature": "Judas_Long",
+          "operator": ">",
+          "value": 0
+        }
+      ],
+      "short_trigger": [
+        {
+          "feature": "Judas_Short",
+          "operator": ">",
+          "value": 0
+        }
+      ]
     },
     "exit_rules": {
       "max_hold_time_hours": 999,
       "description": "Автоматическое управление сделкой движком (Path-Dependent TP/SL)"
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
     }
   }
 }

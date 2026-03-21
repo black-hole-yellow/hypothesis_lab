@@ -6,7 +6,9 @@
     "rationale": "Торговля макро-спреда. Если инфляция в Британии выходит хуже ожиданий (Hot), а в США показывает замедление (Cold), это создает асимметрию в будущих ставках Центробанков. GBP/USD должен формировать устойчивый бычий тренд на горизонте 1 недели, игнорируя краткосрочный шум."
   },
   "universe": {
-    "instruments": ["GBPUSD"],
+    "instruments": [
+      "GBPUSD"
+    ],
     "resolution": "1h",
     "timezone": "UTC"
   },
@@ -32,6 +34,12 @@
     },
     "exit_rules": {
       "max_hold_time_hours": 120
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
     }
   }
 }

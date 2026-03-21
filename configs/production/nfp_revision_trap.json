@@ -6,7 +6,9 @@
     "rationale": "Если заголовок NFP сильный, любой откат цены обратно к уровню открытия новости является не разворотом, а коррекцией. Институционалы используют этот откат (Pullback) для входа по направлению первоначального импульса по лучшей цене."
   },
   "universe": {
-    "instruments": ["GBPUSD"],
+    "instruments": [
+      "GBPUSD"
+    ],
     "resolution": "1h",
     "timezone": "UTC"
   },
@@ -40,7 +42,13 @@
       ]
     },
     "exit_rules": {
-      "max_hold_time_hours": 24 
+      "max_hold_time_hours": 24
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
     }
   }
 }

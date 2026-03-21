@@ -1,4 +1,3 @@
-# src/library/feature_registry.py
 
 # 1. Импорты из сессионных и временных фич
 from src.library.time_features import (

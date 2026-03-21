@@ -5,16 +5,45 @@
     "author": "Quant_Lab_Alpha",
     "rationale": "Микроструктура волатильности. Если Азиатская сессия прошла в очень узком диапазоне (< 0.25 ATR), это указывает на накопление крупного объема. Открытие Лондона (08:00 UTC) служит катализатором. Мы входим в сторону первого уверенного пробоя границ этого диапазона."
   },
-  "universe": { "instruments": ["GBPUSD"], "resolution": "1h", "timezone": "UTC" },
+  "universe": {
+    "instruments": [
+      "GBPUSD"
+    ],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
   "data_dependencies": {
-    "required_features": ["Asian_Box_Long", "Asian_Box_Short"]
+    "required_features": [
+      "Asian_Box_Long",
+      "Asian_Box_Short"
+    ]
   },
   "logic": {
     "evaluation_metric": "Close",
     "entry_rules": {
-      "long_trigger": [{ "feature": "Asian_Box_Long", "operator": ">", "value": 0 }],
-      "short_trigger": [{ "feature": "Asian_Box_Short", "operator": ">", "value": 0 }]
+      "long_trigger": [
+        {
+          "feature": "Asian_Box_Long",
+          "operator": ">",
+          "value": 0
+        }
+      ],
+      "short_trigger": [
+        {
+          "feature": "Asian_Box_Short",
+          "operator": ">",
+          "value": 0
+        }
+      ]
     },
-    "exit_rules": { "max_hold_time_hours": 3 }
+    "exit_rules": {
+      "max_hold_time_hours": 3
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
+    }
   }
 }

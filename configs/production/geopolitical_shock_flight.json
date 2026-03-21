@@ -6,7 +6,9 @@
     "rationale": "При внезапном макроэкономическом/геополитическом шоке капитал мгновенно бежит в safe-haven (USD), вызывая резкое падение GBP/USD вне зависимости от технического тренда."
   },
   "universe": {
-    "instruments": ["GBPUSD"],
+    "instruments": [
+      "GBPUSD"
+    ],
     "resolution": "1h",
     "timezone": "UTC"
   },
@@ -31,6 +33,12 @@
     },
     "exit_rules": {
       "max_hold_time_hours": 1
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
     }
   }
 }

@@ -5,8 +5,18 @@
     "author": "Quant_Lab_Alpha",
     "rationale": "Чистая количественная стратегия. Любой 1-часовой спайк >3σ (относительно 30-дневной нормы) является статистической аномалией. Рынок математически обязан вернуться к среднему диапазону в течение следующих 12 часов."
   },
-  "universe": { "instruments": ["GBPUSD"], "resolution": "1h", "timezone": "UTC" },
-  "data_dependencies": { "required_features": ["Algo_Vol_Crush_Short"] },
+  "universe": {
+    "instruments": [
+      "GBPUSD"
+    ],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "Algo_Vol_Crush_Short"
+    ]
+  },
   "logic": {
     "evaluation_metric": "Realized_Vol",
     "filters": [],
@@ -15,10 +25,20 @@
       "short_trigger": [
         {
           "comment": "Обнаружена микроструктурная аномалия (>3 Сигмы). Вход на шорт волатильности.",
-          "feature": "Algo_Vol_Crush_Short", "operator": ">", "value": 0
+          "feature": "Algo_Vol_Crush_Short",
+          "operator": ">",
+          "value": 0
         }
       ]
     },
-    "exit_rules": { "max_hold_time_hours": 12 }
+    "exit_rules": {
+      "max_hold_time_hours": 12
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
+    }
   }
 }

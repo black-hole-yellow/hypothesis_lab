@@ -6,22 +6,45 @@
     "rationale": "Охота за ликвидностью Лондона. В период 15:00-17:00 (выход новостей США) цена сбивает экстремум лондонской сессии и разворачивается обратно. Жесткий 1:2 RR, без пятниц и декабря."
   },
   "universe": {
-    "instruments": ["GBPUSD"],
+    "instruments": [
+      "GBPUSD"
+    ],
     "resolution": "1h",
     "timezone": "UTC"
   },
   "data_dependencies": {
-    "required_features": ["NY_Sweep_Long", "NY_Sweep_Short"]
+    "required_features": [
+      "NY_Sweep_Long",
+      "NY_Sweep_Short"
+    ]
   },
   "logic": {
     "evaluation_metric": "Close",
     "entry_rules": {
-      "long_trigger": [{ "feature": "NY_Sweep_Long", "operator": ">", "value": 0 }],
-      "short_trigger": [{ "feature": "NY_Sweep_Short", "operator": ">", "value": 0 }]
+      "long_trigger": [
+        {
+          "feature": "NY_Sweep_Long",
+          "operator": ">",
+          "value": 0
+        }
+      ],
+      "short_trigger": [
+        {
+          "feature": "NY_Sweep_Short",
+          "operator": ">",
+          "value": 0
+        }
+      ]
     },
     "exit_rules": {
       "max_hold_time_hours": 999,
       "description": "Автоматическое управление сделкой движком (Path-Dependent TP/SL)"
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
     }
   }
 }

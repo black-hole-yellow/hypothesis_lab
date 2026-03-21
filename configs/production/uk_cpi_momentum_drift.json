@@ -6,7 +6,9 @@
     "rationale": "Если дельта UK CPI >= |0.3%|, направление институционального потока подтверждается закрытием 4H свечи после релиза. После этого тренд сохраняется до конца нью-йоркской сессии."
   },
   "universe": {
-    "instruments": ["GBPUSD"],
+    "instruments": [
+      "GBPUSD"
+    ],
     "resolution": "1h",
     "timezone": "UTC"
   },
@@ -40,6 +42,12 @@
     },
     "exit_rules": {
       "max_hold_time_hours": 9
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
     }
   }
 }

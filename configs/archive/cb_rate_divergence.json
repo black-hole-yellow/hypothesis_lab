@@ -6,7 +6,9 @@
     "rationale": "Торговля дифференциала ставок. Если рынок прайсит снижение ставки ФРС (Dovish), а Банк Англии переходит к повышению или удержанию (Hawkish), возникает мощный макро-попутный ветер для GBP/USD."
   },
   "universe": {
-    "instruments": ["GBPUSD"],
+    "instruments": [
+      "GBPUSD"
+    ],
     "resolution": "1h",
     "timezone": "UTC"
   },
@@ -40,6 +42,12 @@
     },
     "exit_rules": {
       "max_hold_time_hours": 120
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
     }
   }
 }

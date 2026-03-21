@@ -6,7 +6,9 @@
     "rationale": "Если безработица в США растет, а в UK стабильна, фундаментальный вектор направлен вверх для GBP/USD. Если в первый час релиза DXY иррационально укрепляется (Safe Haven flows), GBP/USD формирует медвежью свечу. Это ловушка (Fakeout). Мы выкупаем эту просадку в ожидании разворота и пробоя локального 4H максимума."
   },
   "universe": {
-    "instruments": ["GBPUSD"],
+    "instruments": [
+      "GBPUSD"
+    ],
     "resolution": "1h",
     "timezone": "UTC"
   },
@@ -32,6 +34,12 @@
     },
     "exit_rules": {
       "max_hold_time_hours": 12
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
     }
   }
 }

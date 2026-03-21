@@ -6,7 +6,9 @@
     "rationale": "Если ФРС повышает ставку без сюрпризов (полностью в рамках консенсуса), драйверов для дальнейшего роста доллара не остается. Спекулянты, покупавшие USD на 'слухах', фиксируют прибыль, вызывая ралли GBP/USD."
   },
   "universe": {
-    "instruments": ["GBPUSD"],
+    "instruments": [
+      "GBPUSD"
+    ],
     "resolution": "1h",
     "timezone": "UTC"
   },
@@ -32,6 +34,12 @@
     },
     "exit_rules": {
       "max_hold_time_hours": 24
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
     }
   }
 }

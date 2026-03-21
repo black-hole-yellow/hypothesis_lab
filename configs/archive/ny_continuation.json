@@ -6,21 +6,44 @@
     "rationale": "Проверка статистического преимущества: если Лондон прошел >0.5 ATR, Нью-Йорк продолжит это движение. Вход в 16:00, выход строго в 22:00 без SL/TP."
   },
   "universe": {
-    "instruments": ["GBPUSD"],
+    "instruments": [
+      "GBPUSD"
+    ],
     "resolution": "1h",
     "timezone": "UTC"
   },
   "data_dependencies": {
-    "required_features": ["NY_Cont_Long", "NY_Cont_Short"]
+    "required_features": [
+      "NY_Cont_Long",
+      "NY_Cont_Short"
+    ]
   },
   "logic": {
     "evaluation_metric": "Close",
     "entry_rules": {
-      "long_trigger": [{ "feature": "NY_Cont_Long", "operator": ">", "value": 0 }],
-      "short_trigger": [{ "feature": "NY_Cont_Short", "operator": ">", "value": 0 }]
+      "long_trigger": [
+        {
+          "feature": "NY_Cont_Long",
+          "operator": ">",
+          "value": 0
+        }
+      ],
+      "short_trigger": [
+        {
+          "feature": "NY_Cont_Short",
+          "operator": ">",
+          "value": 0
+        }
+      ]
     },
     "exit_rules": {
       "description": "Time-based exit: Exactly 6 hours (End of NY Session)"
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
     }
   }
 }

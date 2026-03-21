@@ -6,7 +6,9 @@
     "rationale": "Ненаправленная макро-стратегия. Измеряет падение реализованной волатильности (ATR) сразу после публикации экзит-полов на всеобщих выборах в Великобритании."
   },
   "universe": {
-    "instruments": ["GBPUSD"],
+    "instruments": [
+      "GBPUSD"
+    ],
     "resolution": "1h",
     "timezone": "UTC"
   },
@@ -17,7 +19,7 @@
   },
   "parameters": {},
   "logic": {
-    "evaluation_metric": "Realized_Vol", 
+    "evaluation_metric": "Realized_Vol",
     "filters": [],
     "entry_rules": {
       "long_trigger": [
@@ -32,6 +34,12 @@
     },
     "exit_rules": {
       "max_hold_time_hours": 12
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
     }
   }
 }

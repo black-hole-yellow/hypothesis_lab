@@ -5,16 +5,45 @@
     "author": "Quant_Lab_Alpha",
     "rationale": "Институциональный сброс. Если прошлая неделя была экстремально трендовой (> 2 ATR), то в понедельник на открытии (00:00 UTC) происходит фиксация прибыли или рыночная коррекция. Мы входим против тренда прошлой недели на 24 часа."
   },
-  "universe": { "instruments": ["GBPUSD"], "resolution": "1h", "timezone": "UTC" },
+  "universe": {
+    "instruments": [
+      "GBPUSD"
+    ],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
   "data_dependencies": {
-    "required_features": ["Monday_Reversion_Short", "Monday_Reversion_Long"]
+    "required_features": [
+      "Monday_Reversion_Short",
+      "Monday_Reversion_Long"
+    ]
   },
   "logic": {
     "evaluation_metric": "Close",
     "entry_rules": {
-      "long_trigger": [{ "feature": "Monday_Reversion_Long", "operator": ">", "value": 0 }],
-      "short_trigger": [{ "feature": "Monday_Reversion_Short", "operator": ">", "value": 0 }]
+      "long_trigger": [
+        {
+          "feature": "Monday_Reversion_Long",
+          "operator": ">",
+          "value": 0
+        }
+      ],
+      "short_trigger": [
+        {
+          "feature": "Monday_Reversion_Short",
+          "operator": ">",
+          "value": 0
+        }
+      ]
     },
-    "exit_rules": { "max_hold_time_hours": 24 }
+    "exit_rules": {
+      "max_hold_time_hours": 24
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
+    }
   }
 }

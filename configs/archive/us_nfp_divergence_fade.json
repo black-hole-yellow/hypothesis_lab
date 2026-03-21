@@ -6,7 +6,9 @@
     "rationale": "Входим только при подтверждении разворота: если свеча подтверждения (T+1) закрылась в противоположную сторону от импульса релиза (T=0). Это доказывает наличие институционального поглощения ликвидности."
   },
   "universe": {
-    "instruments": ["GBPUSD"],
+    "instruments": [
+      "GBPUSD"
+    ],
     "resolution": "1h",
     "timezone": "UTC"
   },
@@ -40,6 +42,12 @@
     },
     "exit_rules": {
       "max_hold_time_hours": 6
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
     }
   }
 }

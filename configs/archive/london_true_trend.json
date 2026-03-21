@@ -6,19 +6,44 @@
     "rationale": "Микроструктура сессий. Первые 2 часа Лондона (08:00-10:00 UTC) часто сопровождаются охотой за стопами и ложными пробоями Азиатских диапазонов. К 10:00 UTC смарт-мани определяют истинный вектор дня. Мы входим по направлению утреннего вектора в 10:00 и удерживаем позицию до Лондонского Фиксинга (16:00)."
   },
   "universe": {
-    "instruments": ["GBPUSD"],
+    "instruments": [
+      "GBPUSD"
+    ],
     "resolution": "1h",
     "timezone": "UTC"
   },
   "data_dependencies": {
-    "required_features": ["LO_True_Trend_Long", "LO_True_Trend_Short"]
+    "required_features": [
+      "LO_True_Trend_Long",
+      "LO_True_Trend_Short"
+    ]
   },
   "logic": {
     "evaluation_metric": "Close",
     "entry_rules": {
-      "long_trigger": [{ "feature": "LO_True_Trend_Long", "operator": ">", "value": 0 }],
-      "short_trigger": [{ "feature": "LO_True_Trend_Short", "operator": ">", "value": 0 }]
+      "long_trigger": [
+        {
+          "feature": "LO_True_Trend_Long",
+          "operator": ">",
+          "value": 0
+        }
+      ],
+      "short_trigger": [
+        {
+          "feature": "LO_True_Trend_Short",
+          "operator": ">",
+          "value": 0
+        }
+      ]
     },
-    "exit_rules": { "max_hold_time_hours": 5 }
+    "exit_rules": {
+      "max_hold_time_hours": 5
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
+    }
   }
 }

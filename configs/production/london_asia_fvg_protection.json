@@ -6,7 +6,9 @@
     "rationale": "Проверяет гипотезу: если азиатский экстремум сформирован внутри 4H FVG, он защищен. Лондон не будет делать свип, а сразу даст вход по тренду в 10:00."
   },
   "universe": {
-    "instruments": ["GBPUSD"],
+    "instruments": [
+      "GBPUSD"
+    ],
     "resolution": "1h",
     "timezone": "UTC"
   },
@@ -39,6 +41,12 @@
     },
     "exit_rules": {
       "max_hold_time_hours": 8
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
     }
   }
 }

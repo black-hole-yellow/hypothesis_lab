@@ -6,22 +6,45 @@
     "rationale": "Микроструктура банковского фиксинга. Если к 18:00 UA рынок прошел направленно >0.8 ATR, фонды фиксируют прибыль перед закрытием Лондона. Это создает резкий контр-трендовый откат. Стоп за экстремум дня."
   },
   "universe": {
-    "instruments": ["GBPUSD"],
+    "instruments": [
+      "GBPUSD"
+    ],
     "resolution": "1h",
     "timezone": "UTC"
   },
   "data_dependencies": {
-    "required_features": ["Fix_Fade_Long", "Fix_Fade_Short"]
+    "required_features": [
+      "Fix_Fade_Long",
+      "Fix_Fade_Short"
+    ]
   },
   "logic": {
     "evaluation_metric": "Close",
     "entry_rules": {
-      "long_trigger": [{ "feature": "Fix_Fade_Long", "operator": ">", "value": 0 }],
-      "short_trigger": [{ "feature": "Fix_Fade_Short", "operator": ">", "value": 0 }]
+      "long_trigger": [
+        {
+          "feature": "Fix_Fade_Long",
+          "operator": ">",
+          "value": 0
+        }
+      ],
+      "short_trigger": [
+        {
+          "feature": "Fix_Fade_Short",
+          "operator": ">",
+          "value": 0
+        }
+      ]
     },
     "exit_rules": {
       "max_hold_time_hours": 999,
       "description": "Автоматическое управление сделкой движком (1:2 RR)"
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
     }
   }
 }

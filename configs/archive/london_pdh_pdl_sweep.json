@@ -6,7 +6,9 @@
     "rationale": "Tests if London sweeping the Previous Day High or Low and printing a confirmed fractal acts as the high/low of the session."
   },
   "universe": {
-    "instruments": ["GBPUSD"],
+    "instruments": [
+      "GBPUSD"
+    ],
     "resolution": "1h",
     "timezone": "UTC"
   },
@@ -39,6 +41,12 @@
     },
     "exit_rules": {
       "max_hold_time_hours": 8
+    },
+    "execution_rules": {
+      "risk_reward_ratio": 2.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": false,
+      "default_sl_atr_multiplier": 1.0
     }
   }
 }
