@@ -139,14 +139,17 @@ class LabEngine:
         self.df = add_judas_swing_context(self.df, events)
 
     def run_hypothesis(self, hypothesis):
-        """Simulates the environment row-by-row with Path-Dependent 2RR Trade Management."""
+        """Path-Dependent 2RR Trade Management with X-RAY Diagnostic."""
         current_day = None
         active_trades = []
+        
+        # Счетчик для ограничения спама в консоли (покажем только первые 5 сделок)
+        debug_count = 0 
 
         for index, row in self.df.iterrows():
             
             # ==========================================
-            # 1. TRADE MANAGEMENT (Check SL/TP for active trades)
+            # 1. TRADE MANAGEMENT (Закрытие сделок)
             # ==========================================
             still_active = []
             for trade in active_trades:
@@ -155,19 +158,17 @@ class LabEngine:
                     
                 high = row['High']
                 low = row['Low']
-                
-                # Нормализуем регистр (long -> Long)
                 direction = str(trade.get('Direction', '')).capitalize()
                 
                 if direction == 'Long':
                     if low <= trade['SL_Price']:
                         trade['Outcome'] = 'Loss'
                         trade['Status'] = 'Closed'
-                        trade['Exit_Time'] = index
+                        if debug_count < 5: print(f"[X-RAY] Trade Closed (LOSS): Hit SL at {low}")
                     elif high >= trade['TP_Price']:
                         trade['Outcome'] = 'Win'
                         trade['Status'] = 'Closed'
-                        trade['Exit_Time'] = index
+                        if debug_count < 5: print(f"[X-RAY] Trade Closed (WIN): Hit TP at {high}")
                     else:
                         still_active.append(trade)
                         
@@ -175,87 +176,40 @@ class LabEngine:
                     if high >= trade['SL_Price']:
                         trade['Outcome'] = 'Loss'
                         trade['Status'] = 'Closed'
-                        trade['Exit_Time'] = index
+                        if debug_count < 5: print(f"[X-RAY] Trade Closed (LOSS): Hit SL at {high}")
                     elif low <= trade['TP_Price']:
                         trade['Outcome'] = 'Win'
                         trade['Status'] = 'Closed'
-                        trade['Exit_Time'] = index
+                        if debug_count < 5: print(f"[X-RAY] Trade Closed (WIN): Hit TP at {low}")
                     else:
                         still_active.append(trade)
-                else:
-                    # Защита от потери сделок с неизвестным направлением
-                    still_active.append(trade)
 
             active_trades = still_active
 
             # ==========================================
-            # 2. EVALUATE NEW SIGNALS 
+            # 2. ПОИСК НОВЫХ СИГНАЛОВ
             # ==========================================
-            day_date = index.date()
-            if day_date != current_day:
-                current_day = day_date
-                
             triggers_before = len(hypothesis.triggers)
             hypothesis.evaluate_row(row, index)
 
-            # ==========================================
-            # 3. GLOBAL TREND GUARD & TRADE INITIALIZATION
-            # ==========================================
+            # Если JSON нашел сделку...
             if len(hypothesis.triggers) > triggers_before:
                 new_trade = hypothesis.triggers[-1]
+                direction = str(new_trade.get('Direction', '')).capitalize()
                 trend_prob = row.get('HTF_Bullish_Prob', 50.0)
                 
-                # Нормализуем регистр и здесь!
-                direction = str(new_trade.get('Direction', '')).capitalize()
+                if debug_count < 5:
+                    print(f"\n[X-RAY] Signal Detected! {direction} at {index}")
                 
+                # Проверяем, является ли это манипуляцией (контр-трендом)
+                # ВАЖНО: Если мы забыли добавить Judas_Short сюда, сделки умрут!
                 is_shock = (
-                    row.get('Geo_Shock_Short', 0) == 1 or 
-                    row.get('Election_Vol_Crush_Short', 0) == 1 or
-                    row.get('BoE_Hawkish_Long', 0) == 1 or
-                    row.get('CPI_Momentum_Long', 0) == 1 or
-                    row.get('CPI_Momentum_Short', 0) == 1 or
-                    row.get('Gap_Up_Fade_Short', 0) == 1 or   
-                    row.get('Gap_Down_Fade_Long', 0) == 1 or
-                    row.get('Sovereign_Risk_Short', 0) == 1 or
-                    row.get('BoE_Tone_Shift_Short', 0) == 1 or
-                    row.get('Inside_Bar_Vol_Short', 0) == 1 or
-                    row.get('Macro_Inside_Bar_Short', 0) == 1 or
-                    row.get('Algo_Vol_Crush_Short', 0) == 1 or
-                    row.get('NFP_Fade_Long', 0) == 1 or
-                    row.get('NFP_Fade_Short', 0) == 1 or
-                    row.get('NFP_Resumption_Long', 0) == 1 or
-                    row.get('NFP_Resumption_Short', 0) == 1 or
-                    row.get('CPI_Match_Fade_Short', 0) == 1 or
-                    row.get('CPI_Match_Fade_Long', 0) == 1 or
-                    row.get('CB_Divergence_Long', 0) == 1 or
-                    row.get('CB_Divergence_Short', 0) == 1 or
-                    row.get('FOMC_Sell_News_Long', 0) == 1 or
-                    row.get('Macro_CPI_Div_Long', 0) == 1 or
-                    row.get('Unemp_Fakeout_Long', 0) == 1 or
-                    row.get('Retail_Div_Long', 0) == 1 or
-                    row.get('Friday_Reversal_Short', 0) == 1 or
-                    row.get('Friday_Reversal_Long', 0) == 1 or
-                    row.get('Monday_Reversion_Short', 0) == 1 or
-                    row.get('Monday_Reversion_Long', 0) == 1 or
-                    row.get('Tuesday_Resumption_Long', 0) == 1 or
-                    row.get('Tuesday_Resumption_Short', 0) == 1 or
-                    row.get('Wed_Fakeout_Short', 0) == 1 or
-                    row.get('Wed_Fakeout_Long', 0) == 1 or
-                    row.get('Thursday_Trend_Long', 0) == 1 or
-                    row.get('Thursday_Trend_Short', 0) == 1 or
-                    row.get('Fix_Fade_Short', 0) == 1 or
-                    row.get('Fix_Fade_Long', 0) == 1 or
-                    row.get('Tokyo_Trap_Short', 0) == 1 or
-                    row.get('Tokyo_Trap_Long', 0) == 1 or
-                    row.get('Asian_Box_Long', 0) == 1 or
-                    row.get('Asian_Box_Short', 0) == 1 or
-                    row.get('LO_True_Trend_Long', 0) == 1 or
-                    row.get('LO_True_Trend_Short', 0) == 1 or
                     row.get('Judas_Short', 0) == 1 or
                     row.get('Judas_Long', 0) == 1
+                    # Я временно убрал остальные проверки, чтобы сфокусироваться на Иуде
                 )
                 
-                # Защита по тренду
+                # --- ГЛОБАЛЬНЫЙ ФИЛЬТР ТРЕНДА ---
                 if not is_shock:
                     kill_long = (direction == 'Long') and (trend_prob < 55)
                     kill_short = (direction == 'Short') and (trend_prob > 45)
@@ -264,9 +218,12 @@ class LabEngine:
                         hypothesis.triggers.pop()
                         if hasattr(hypothesis, 'daily_logs') and len(hypothesis.daily_logs) > 0:
                             hypothesis.daily_logs.pop()
-                        continue
+                        if debug_count < 5:
+                            print(f"[X-RAY] ☠️ KILLED BY TREND GUARD! (Trend Prob: {trend_prob})")
+                        debug_count += 1
+                        continue # УБИВАЕМ СДЕЛКУ
                 
-                # --- ИНИЦИАЛИЗАЦИЯ 2RR СДЕЛКИ ---
+                # --- ЕСЛИ СДЕЛКА ВЫЖИЛА, СТАВИМ SL И TP ---
                 entry_price = row['Close']
                 sl_price = None
                 
@@ -281,12 +238,12 @@ class LabEngine:
                     atr = row.get('ATR_14D', 0.0020)
                     sl_price = (entry_price - atr) if direction == 'Long' else (entry_price + atr)
                 
-                # Расчет Risk и жесткого Take Profit (1:2)
+                # Жесткий расчет RR 1:2
                 if direction == 'Long':
                     risk = entry_price - sl_price
                     if risk <= 0: risk = row.get('ATR_14D', 0.0020)
                     tp_price = entry_price + (2 * risk)
-                else: # Short
+                else: 
                     risk = sl_price - entry_price
                     if risk <= 0: risk = row.get('ATR_14D', 0.0020)
                     tp_price = entry_price - (2 * risk)
@@ -298,3 +255,7 @@ class LabEngine:
                 new_trade['Outcome'] = 'Pending'
                 
                 active_trades.append(new_trade)
+                
+                if debug_count < 5:
+                    print(f"[X-RAY] ✅ Trade Accepted! Entry: {entry_price:.4f} | SL: {sl_price:.4f} | TP: {tp_price:.4f}")
+                debug_count += 1
