@@ -1,11 +1,15 @@
 {
   "metadata": {
-    "hypothesis_id": "H_041_FIX_FADE",
-    "name": "London Fix Fade (Friday Institutional Reversal)",
+    "hypothesis_id": "H_050_LONDON_FIX_FADE",
+    "name": "London Fix Reversal (End of Day Exhaustion)",
     "author": "Quant_Lab_Alpha",
-    "rationale": "Микроструктура пятницы. После завершения Лондонского Фиксинга (16:00 UTC) крупные игроки начинают фиксировать прибыль по недельным трендам, чтобы минимизировать риск переноса позиций через выходные. Это создает разворотный импульс к среднему."
+    "rationale": "Микроструктура банковского фиксинга. Если к 18:00 UA рынок прошел направленно >0.8 ATR, фонды фиксируют прибыль перед закрытием Лондона. Это создает резкий контр-трендовый откат. Стоп за экстремум дня."
   },
-  "universe": { "instruments": ["GBPUSD"], "resolution": "1h", "timezone": "UTC" },
+  "universe": {
+    "instruments": ["GBPUSD"],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
   "data_dependencies": {
     "required_features": ["Fix_Fade_Long", "Fix_Fade_Short"]
   },
@@ -15,6 +19,9 @@
       "long_trigger": [{ "feature": "Fix_Fade_Long", "operator": ">", "value": 0 }],
       "short_trigger": [{ "feature": "Fix_Fade_Short", "operator": ">", "value": 0 }]
     },
-    "exit_rules": { "max_hold_time_hours": 5 }
+    "exit_rules": {
+      "max_hold_time_hours": 999,
+      "description": "Автоматическое управление сделкой движком (1:2 RR)"
+    }
   }
 }

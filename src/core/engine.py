@@ -14,7 +14,7 @@ from src.library.htf_features import (
     add_fvg_sr_confluence_context, add_geopolitical_shock_context, add_htf_trend_probability, 
     add_fvg_order_flow_context, add_judas_swing_context, add_london_counter_fractal_context, add_london_fix_fade_context, add_london_pdh_pdl_sweep_context, add_london_true_trend_context, add_macro_shock_inside_bar_context, add_monday_gap_reversion_context, add_nfp_divergence_context, add_nfp_revision_trap_context, add_ny_sr_touch_context, add_previous_boundaries, add_pure_algo_vol_crush_context, add_retail_sales_divergence_context, add_sovereign_risk_proxy_context, add_thursday_expansion_context, add_tokyo_trap_context, add_turnaround_tuesday_context, add_uk_cpi_momentum_context, add_uk_political_shock_context, add_uk_us_cpi_divergence_context, add_unemp_fakeout_context, add_wednesday_fakeout_context, add_weekend_gap_context, add_weekly_floor_context, calculate_multi_tf_fvgs, 
     add_asian_sweep_context, add_ny_expansion_context, 
-    add_weekly_swing_context, add_ny_continuation_context
+    add_weekly_swing_context, add_ny_continuation_context, add_ny_news_sweep_context
 )
 from src.utils.macro_registry import load_macro_events
 
@@ -127,6 +127,8 @@ class LabEngine:
         self.df = add_london_true_trend_context(self.df, events)
         self.df = add_judas_swing_context(self.df, events)
         self.df = add_ny_continuation_context(self.df, events)
+        self.df = add_ny_news_sweep_context(self.df, events)
+        self.df = add_london_fix_fade_context(self.df, events)
 
     def run_hypothesis(self, hypothesis):
         """Path-Dependent 1:2 RR with 1-trade-per-day (+1 Resweep) Limit."""
@@ -152,20 +154,24 @@ class LabEngine:
                 if direction == 'Long':
                     if low <= trade['SL_Price']:
                         trade['Outcome'], trade['Status'] = 'Loss', 'Closed'
+                        trade['Exit_Time'] = index
                         if trade.get('Datetime', index).date() == current_day: losses_today += 1
                     elif high >= trade['TP_Price']:
                         trade['Outcome'], trade['Status'] = 'Win', 'Closed'
+                        trade['Exit_Time'] = index
                     else: still_active.append(trade)
                 elif direction == 'Short':
                     if high >= trade['SL_Price']:
                         trade['Outcome'], trade['Status'] = 'Loss', 'Closed'
+                        trade['Exit_Time'] = index
                         if trade.get('Datetime', index).date() == current_day: losses_today += 1
                     elif low <= trade['TP_Price']:
                         trade['Outcome'], trade['Status'] = 'Win', 'Closed'
+                        trade['Exit_Time'] = index
                     else: still_active.append(trade)
             active_trades = still_active
 
-            # 2. EVALUATE SIGNAL (JSON Logic)
+            # 2. EVALUATE SIGNAL
             triggers_before = len(hypothesis.triggers)
             hypothesis.evaluate_row(row, index)
 
@@ -173,60 +179,20 @@ class LabEngine:
             if len(hypothesis.triggers) > triggers_before:
                 new_trade = hypothesis.triggers[-1]
                 direction = str(new_trade.get('Direction', '')).capitalize()
-                trend_prob = row.get('HTF_Bullish_Prob', 50.0)
                 
-                # Исключения для сессионных стратегий (пропускают фильтр HTF-тренда)
+                # Контр-трендовые сигналы (пропускают фильтр HTF-тренда)
                 is_shock = (
-                    row.get('Geo_Shock_Short', 0) == 1 or 
-                    row.get('Election_Vol_Crush_Short', 0) == 1 or
-                    row.get('BoE_Hawkish_Long', 0) == 1 or
-                    row.get('CPI_Momentum_Long', 0) == 1 or
-                    row.get('CPI_Momentum_Short', 0) == 1 or
-                    row.get('Gap_Up_Fade_Short', 0) == 1 or   
-                    row.get('Gap_Down_Fade_Long', 0) == 1 or
-                    row.get('Sovereign_Risk_Short', 0) == 1 or
-                    row.get('BoE_Tone_Shift_Short', 0) == 1 or
-                    row.get('Inside_Bar_Vol_Short', 0) == 1 or
-                    row.get('Macro_Inside_Bar_Short', 0) == 1 or
-                    row.get('Algo_Vol_Crush_Short', 0) == 1 or
-                    row.get('NFP_Fade_Long', 0) == 1 or
-                    row.get('NFP_Fade_Short', 0) == 1 or
-                    row.get('NFP_Resumption_Long', 0) == 1 or
-                    row.get('NFP_Resumption_Short', 0) == 1 or
-                    row.get('CPI_Match_Fade_Short', 0) == 1 or
-                    row.get('CPI_Match_Fade_Long', 0) == 1 or
-                    row.get('CB_Divergence_Long', 0) == 1 or
-                    row.get('CB_Divergence_Short', 0) == 1 or
-                    row.get('FOMC_Sell_News_Long', 0) == 1 or
-                    row.get('Macro_CPI_Div_Long', 0) == 1 or
-                    row.get('Unemp_Fakeout_Long', 0) == 1 or
-                    row.get('Retail_Div_Long', 0) == 1 or
-                    row.get('Friday_Reversal_Short', 0) == 1 or
-                    row.get('Friday_Reversal_Long', 0) == 1 or
-                    row.get('Monday_Reversion_Short', 0) == 1 or
-                    row.get('Monday_Reversion_Long', 0) == 1 or
-                    row.get('Tuesday_Resumption_Long', 0) == 1 or
-                    row.get('Tuesday_Resumption_Short', 0) == 1 or
-                    row.get('Wed_Fakeout_Short', 0) == 1 or
-                    row.get('Wed_Fakeout_Long', 0) == 1 or
-                    row.get('Thursday_Trend_Long', 0) == 1 or
-                    row.get('Thursday_Trend_Short', 0) == 1 or
-                    row.get('Fix_Fade_Short', 0) == 1 or
-                    row.get('Fix_Fade_Long', 0) == 1 or
-                    row.get('Tokyo_Trap_Short', 0) == 1 or
-                    row.get('Tokyo_Trap_Long', 0) == 1 or
-                    row.get('Asian_Box_Long', 0) == 1 or
-                    row.get('Asian_Box_Short', 0) == 1 or
-                    row.get('LO_True_Trend_Long', 0) == 1 or
-                    row.get('LO_True_Trend_Short', 0) == 1 or
                     row.get('Judas_Short', 0) == 1 or
                     row.get('Judas_Long', 0) == 1 or
-                    row.get('NY_Cont_Long', 0) == 1 or    
-                    row.get('NY_Cont_Short', 0) == 1      
+                    row.get('NY_Sweep_Short', 0) == 1 or  
+                    row.get('NY_Sweep_Long', 0) == 1 or
+                    row.get('Fix_Fade_Short', 0) == 1 or  
+                    row.get('Fix_Fade_Long', 0) == 1        
                 )
 
-                # --- ЗАЩИТА ПО ТРЕНДУ (Для базовых стратегий) ---
+                # Защита по тренду (Только для базовых стратегий)
                 if not is_shock:
+                    trend_prob = row.get('HTF_Bullish_Prob', 50.0)
                     kill_long = (direction == 'Long') and (trend_prob < 55)
                     kill_short = (direction == 'Short') and (trend_prob > 45)
                     
@@ -236,7 +202,7 @@ class LabEngine:
                             hypothesis.daily_logs.pop()
                         continue
                 
-                # --- ЗАЩИТА ОТ ПЕРЕТОРГОВКИ (Circuit Breaker) ---
+                # Защита от переторговки (Circuit Breaker)
                 limit_allows = (trades_opened_today == 0) or (trades_opened_today == 1 and losses_today == 1)
 
                 if not limit_allows:
@@ -247,7 +213,7 @@ class LabEngine:
 
                 trades_opened_today += 1
                 
-                # --- ИНИЦИАЛИЗАЦИЯ 1:2 RR ---
+                # ИНИЦИАЛИЗАЦИЯ 1:2 RR
                 entry_price = row['Close']
                 sl_price = None
                 for col in self.df.columns:

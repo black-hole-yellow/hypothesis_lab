@@ -1,0 +1,27 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_049_NY_NEWS_SWEEP",
+    "name": "NY News Sweep (London Box Fakeout)",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Охота за ликвидностью Лондона. В период 15:00-17:00 (выход новостей США) цена сбивает экстремум лондонской сессии и разворачивается обратно. Жесткий 1:2 RR, без пятниц и декабря."
+  },
+  "universe": {
+    "instruments": ["GBPUSD"],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": ["NY_Sweep_Long", "NY_Sweep_Short"]
+  },
+  "logic": {
+    "evaluation_metric": "Close",
+    "entry_rules": {
+      "long_trigger": [{ "feature": "NY_Sweep_Long", "operator": ">", "value": 0 }],
+      "short_trigger": [{ "feature": "NY_Sweep_Short", "operator": ">", "value": 0 }]
+    },
+    "exit_rules": {
+      "max_hold_time_hours": 999,
+      "description": "Автоматическое управление сделкой движком (Path-Dependent TP/SL)"
+    }
+  }
+}

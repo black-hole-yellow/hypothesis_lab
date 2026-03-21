@@ -1823,60 +1823,171 @@ def add_judas_swing_context(df: pd.DataFrame, events: list = None) -> pd.DataFra
 
 def add_ny_continuation_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
     """
-    H_048: NY Overlap Continuation (Нью-Йоркский Локомотив).
-    Входим в 16:00 UA в сторону сильного лондонского тренда.
+    H_048: NY Overlap Continuation (Pure Statistical Edge).
+    Триггер в 16:00 UA, если Лондон показал сильный вектор (> 0.5 ATR).
     """
     df = df.copy()
     df['NY_Cont_Long'] = 0
-    df['NY_Cont_Long_SL'] = np.nan
     df['NY_Cont_Short'] = 0
-    df['NY_Cont_Short_SL'] = np.nan
 
-    # 1. Считаем локальный ATR (защита от KeyError)
+    # 1. Локальный ATR для автономности
     df['Daily_Range'] = df['High'].rolling(24).max() - df['Low'].rolling(24).min()
     df['ATR_14D'] = df['Daily_Range'].rolling(336).mean()
 
-    # 2. Безопасная работа с датами
+    # 2. Безопасные даты
     df['Day_Key'] = df.index.normalize()
 
-    # 3. Фиксируем цены открытия Лондона (10:00) и закрытия (15:00)
+    # 3. Фиксируем цены: Открытие Лондона (10:00) и Открытие NY (15:00)
     open_10 = df[df['UA_Hour'] == 10].groupby('Day_Key')['Open'].first()
     close_15 = df[df['UA_Hour'] == 15].groupby('Day_Key')['Close'].last()
 
     df['LDN_Open_10'] = df['Day_Key'].map(open_10)
     df['LDN_Close_15'] = df['Day_Key'].map(close_15)
 
-    # 4. Вычисляем "Вектор Лондона"
+    # 4. Вектор Лондона (Направление и Дистанция)
     df['LDN_Vector'] = df['LDN_Close_15'] - df['LDN_Open_10']
     df['LDN_Distance'] = df['LDN_Vector'].abs()
 
-    # ФИЛЬТР: Вектор должен быть сильным (> 0.5 ATR)
+    # ФИЛЬТР: Вектор должен быть больше 0.5 дневного ATR
     strong_trend = df['LDN_Distance'] > (0.5 * df['ATR_14D'])
 
-    # 5. Время входа: 16:00 UA (После открытия акций в США и новостей)
+    # 5. Время входа: ровно 16:00 UA
     is_entry_time = (df['UA_Hour'] == 16)
 
-    # 6. Стоп-лосс (Прячем за откат на открытии Нью-Йорка)
-    # rolling(3) в 16:00 покроет свечи 14:00, 15:00 и 16:00
+    # 6. Логика (только по направлению сильного вектора)
+    long_cond = is_entry_time & strong_trend & (df['LDN_Vector'] > 0)
+    short_cond = is_entry_time & strong_trend & (df['LDN_Vector'] < 0)
+
+    # 7. Запись сигналов
+    df.loc[long_cond, 'NY_Cont_Long'] = 1
+    df.loc[short_cond, 'NY_Cont_Short'] = 1
+
+    # Очистка мусора
+    df.drop(columns=['Day_Key', 'LDN_Open_10', 'LDN_Close_15', 'LDN_Vector', 'LDN_Distance', 'Daily_Range', 'ATR_14D'], inplace=True, errors='ignore')
+    return df
+
+def add_ny_news_sweep_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    """
+    H_049 v2: NY News Sweep (Protected Extremes Filter).
+    Нью-Йорк НЕ пробивает те экстремумы Лондона, которые уже сняли ликвидность с Азии.
+    """
+    df = df.copy()
+    df['NY_Sweep_Short'] = 0
+    df['NY_Sweep_Short_SL'] = np.nan
+    df['NY_Sweep_Long'] = 0
+    df['NY_Sweep_Long_SL'] = np.nan
+
+    df['Day_Key'] = df.index.normalize()
+
+    # 1. КОРОБКА АЗИИ (00:00 - 06:59)
+    asia_mask = (df.index.hour >= 0) & (df.index.hour < 7)
+    asia_stats = df[asia_mask].groupby('Day_Key').agg({'High': 'max', 'Low': 'min'})
+    df['Asia_High'] = df['Day_Key'].map(asia_stats['High'])
+    df['Asia_Low'] = df['Day_Key'].map(asia_stats['Low'])
+
+    # 2. КОРОБКА ЛОНДОНА (10:00 - 14:59 UA)
+    ldn_mask = (df['UA_Hour'] >= 10) & (df['UA_Hour'] < 15)
+    ldn_stats = df[ldn_mask].groupby('Day_Key').agg({'High': 'max', 'Low': 'min'})
+    df['LDN_High'] = df['Day_Key'].map(ldn_stats['High'])
+    df['LDN_Low'] = df['Day_Key'].map(ldn_stats['Low'])
+
+    # 3. ФИЛЬТР "ЗАЩИЩЕННЫХ ЭКСТРЕМУМОВ"
+    # Если Лондон пробил Азию, этот экстремум защищен крупным капиталом.
+    df['LDN_Swept_Asia_High'] = df['LDN_High'] > df['Asia_High']
+    df['LDN_Swept_Asia_Low'] = df['LDN_Low'] < df['Asia_Low']
+
+    # 4. ВРЕМЯ НЬЮ-ЙОРКА (15:00 - 17:00 UA)
+    is_hunting_zone = (df['UA_Hour'] >= 15) & (df['UA_Hour'] <= 17)
+    is_not_friday = (df.index.dayofweek != 4)
+    is_not_december = (df.index.month != 12)
+    valid_time = is_hunting_zone & is_not_friday & is_not_december
+
+    # 5. БАЗОВАЯ ЛОГИКА SWEEP (Охота за стопами Лондона)
+    just_returned_high = (df['Close'] < df['LDN_High']) & (df['Close'].shift(1) >= df['LDN_High'])
+    pinbar_high = (df['High'] > df['LDN_High']) & (df['Close'] < df['LDN_High'])
+    sweep_high = (just_returned_high | pinbar_high) & (df['Close'] < df['Open'])
+
+    just_returned_low = (df['Close'] > df['LDN_Low']) & (df['Close'].shift(1) <= df['LDN_Low'])
+    pinbar_low = (df['Low'] < df['LDN_Low']) & (df['Close'] > df['LDN_Low'])
+    sweep_low = (just_returned_low | pinbar_low) & (df['Close'] > df['Open'])
+
+    # 6. СМАРТ-ФИЛЬТР (Исключаем защищенные уровни)
+    # Шортим ложный пробой хая Лондона ТОЛЬКО если Лондон НЕ снимал хай Азии
+    valid_sweep_high = sweep_high & (~df['LDN_Swept_Asia_High'])
+    
+    # Лонгуем ложный пробой лоу Лондона ТОЛЬКО если Лондон НЕ снимал лоу Азии
+    valid_sweep_low = sweep_low & (~df['LDN_Swept_Asia_Low'])
+
+    # 7. СТОП-ЛОССЫ
     recent_highest = df['High'].rolling(3, min_periods=1).max()
     recent_lowest = df['Low'].rolling(3, min_periods=1).min()
 
-    # 7. ЛОГИКА ВХОДА
-    # Long: Лондон шел вверх (Vector > 0), тренд сильный, время 16:00
-    long_cond = is_entry_time & strong_trend & (df['LDN_Vector'] > 0)
-    # Short: Лондон шел вниз (Vector < 0), тренд сильный, время 16:00
-    short_cond = is_entry_time & strong_trend & (df['LDN_Vector'] < 0)
+    # 8. ЗАПИСЬ СИГНАЛОВ
+    df.loc[valid_time & valid_sweep_high, 'NY_Sweep_Short'] = 1
+    df.loc[valid_time & valid_sweep_high, 'NY_Sweep_Short_SL'] = recent_highest
 
-    # 8. Запись сигналов
-    df.loc[long_cond, 'NY_Cont_Long'] = 1
-    df.loc[long_cond, 'NY_Cont_Long_SL'] = recent_lowest
-
-    df.loc[short_cond, 'NY_Cont_Short'] = 1
-    df.loc[short_cond, 'NY_Cont_Short_SL'] = recent_highest
+    df.loc[valid_time & valid_sweep_low, 'NY_Sweep_Long'] = 1
+    df.loc[valid_time & valid_sweep_low, 'NY_Sweep_Long_SL'] = recent_lowest
 
     # Очистка
-    df.drop(columns=['Day_Key', 'LDN_Open_10', 'LDN_Close_15', 'LDN_Vector', 'LDN_Distance', 'Daily_Range', 'ATR_14D'], inplace=True, errors='ignore')
+    df.drop(columns=['Day_Key', 'Asia_High', 'Asia_Low', 'LDN_High', 'LDN_Low', 'LDN_Swept_Asia_High', 'LDN_Swept_Asia_Low'], inplace=True, errors='ignore')
     return df
+
+def add_london_fix_fade_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    """
+    H_050: The London Fix Fade (Разворот на фиксинге).
+    В 18:00 UA проверяем, был ли день истощающим трендовым (>0.8 ATR).
+    Если да — входим против тренда на закрытии позиций лондонскими банками.
+    """
+    df = df.copy()
+    df['Fix_Fade_Short'] = 0
+    df['Fix_Fade_Short_SL'] = np.nan
+    df['Fix_Fade_Long'] = 0
+    df['Fix_Fade_Long_SL'] = np.nan
+
+    df['Day_Key'] = df.index.normalize()
+
+    # 1. Локальный расчет 14-дневного ATR
+    df['Daily_Range'] = df['High'].rolling(24).max() - df['Low'].rolling(24).min()
+    df['ATR_14D'] = df['Daily_Range'].rolling(336).mean()
+
+    # 2. Вычисляем вектор дня (Цена сейчас минус Открытие дня)
+    # Используем transform('first'), чтобы взять самую первую цену открытия для каждой даты
+    day_open = df.groupby('Day_Key')['Open'].transform('first')
+    df['Day_Trend_Vector'] = df['Close'] - day_open
+    df['Day_Distance'] = df['Day_Trend_Vector'].abs()
+
+    # 3. Фильтр истощения (Тренд должен пройти больше 80% от среднего дневного движения)
+    exhaustion_reached = df['Day_Distance'] > (0.8 * df['ATR_14D'])
+
+    # 4. Время Лондонского Фиксинга (18:00 по Киеву / 16:00 UTC)
+    is_fix_time = (df['UA_Hour'] == 18)
+    
+    # Исключаем Пятницу (фиксация может быть непредсказуемой) и Декабрь
+    is_valid_day = (df.index.dayofweek != 4) & (df.index.month != 12)
+
+    # 5. Экстремумы дня для Стоп-Лосса (Максимум/минимум за последние 18 часов)
+    day_high = df['High'].rolling(18, min_periods=1).max()
+    day_low = df['Low'].rolling(18, min_periods=1).min()
+
+    # 6. ЛОГИКА СИГНАЛОВ
+    # Шортим, если день был сильно бычьим (Вектор > 0)
+    short_cond = is_fix_time & is_valid_day & exhaustion_reached & (df['Day_Trend_Vector'] > 0)
+    
+    # Лонгуем, если день был сильно медвежьим (Вектор < 0)
+    long_cond = is_fix_time & is_valid_day & exhaustion_reached & (df['Day_Trend_Vector'] < 0)
+
+    # 7. Запись
+    df.loc[short_cond, 'Fix_Fade_Short'] = 1
+    df.loc[short_cond, 'Fix_Fade_Short_SL'] = day_high
+
+    df.loc[long_cond, 'Fix_Fade_Long'] = 1
+    df.loc[long_cond, 'Fix_Fade_Long_SL'] = day_low
+
+    # Очистка памяти
+    df.drop(columns=['Day_Key', 'Daily_Range', 'ATR_14D', 'Day_Trend_Vector', 'Day_Distance'], inplace=True, errors='ignore')
+    return df
+
 
 def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int = 60) -> pd.DataFrame:
     """

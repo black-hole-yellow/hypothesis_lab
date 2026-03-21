@@ -1,0 +1,26 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_048_NY_CONTINUATION_STATS",
+    "name": "NY Continuation (Pure Stats - 6H Hold)",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Проверка статистического преимущества: если Лондон прошел >0.5 ATR, Нью-Йорк продолжит это движение. Вход в 16:00, выход строго в 22:00 без SL/TP."
+  },
+  "universe": {
+    "instruments": ["GBPUSD"],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": ["NY_Cont_Long", "NY_Cont_Short"]
+  },
+  "logic": {
+    "evaluation_metric": "Close",
+    "entry_rules": {
+      "long_trigger": [{ "feature": "NY_Cont_Long", "operator": ">", "value": 0 }],
+      "short_trigger": [{ "feature": "NY_Cont_Short", "operator": ">", "value": 0 }]
+    },
+    "exit_rules": {
+      "description": "Time-based exit: Exactly 6 hours (End of NY Session)"
+    }
+  }
+}
