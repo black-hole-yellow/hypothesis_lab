@@ -20,6 +20,7 @@
       "short_trigger": [{ "feature": "Judas_Short", "operator": ">", "value": 0 }]
     },
     "exit_rules": {
+      "max_hold_time_hours": 999,
       "description": "Автоматическое управление сделкой движком (Path-Dependent TP/SL)"
     }
   }
