@@ -1,0 +1,43 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_043_TOKYO_TRAP",
+    "name": "The Tokyo Trap (London Session Reversal)",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Микроструктура сессий. Ликвидность GBP/USD в Азии (00:00-07:00 UTC) низкая. Если Азия толкает цену более чем на 0.5 ATR, это часто является иррациональным движением на низких объемах. Лондонские банки при открытии (08:00 UTC) разворачивают этот тренд, восстанавливая ликвидность."
+  },
+  "universe": {
+    "instruments": ["GBPUSD"],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "Tokyo_Trap_Long",
+      "Tokyo_Trap_Short"
+    ]
+  },
+  "logic": {
+    "evaluation_metric": "Close",
+    "entry_rules": {
+      "long_trigger": [
+        {
+          "comment": "Азия сильно упала (>0.5 ATR). Лондон выкупает.",
+          "feature": "Tokyo_Trap_Long",
+          "operator": ">",
+          "value": 0
+        }
+      ],
+      "short_trigger": [
+        {
+          "comment": "Азия сильно выросла (>0.5 ATR). Лондон шортит.",
+          "feature": "Tokyo_Trap_Short",
+          "operator": ">",
+          "value": 0
+        }
+      ]
+    },
+    "exit_rules": {
+      "max_hold_time_hours": 4
+    }
+  }
+}

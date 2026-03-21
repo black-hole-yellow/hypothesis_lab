@@ -10,9 +10,9 @@ from src.library.features import (
     add_volume_profile_features, add_volatility_zscore, add_confirmed_fractals
 )
 from src.library.htf_features import (
-    add_1d_swing_context, add_1w_level_rejection_context, add_1w_swing_context, add_asia_fvg_protection_context, add_asian_sr_alignment_context, add_boe_hawkish_context, add_boe_tone_shift_proxy_context, add_cb_divergence_state_context, add_cpi_match_mean_reversion_context, add_election_volatility_context, 
+    add_1d_swing_context, add_1w_level_rejection_context, add_1w_swing_context, add_asia_fvg_protection_context, add_asian_box_breakout_context, add_asian_sr_alignment_context, add_boe_hawkish_context, add_boe_tone_shift_proxy_context, add_cb_divergence_state_context, add_cpi_match_mean_reversion_context, add_election_volatility_context, add_fomc_sell_the_news_context, add_friday_reversal_context, 
     add_fvg_sr_confluence_context, add_geopolitical_shock_context, add_htf_trend_probability, 
-    add_fvg_order_flow_context, add_london_counter_fractal_context, add_london_pdh_pdl_sweep_context, add_macro_shock_inside_bar_context, add_nfp_divergence_context, add_nfp_revision_trap_context, add_ny_sr_touch_context, add_previous_boundaries, add_pure_algo_vol_crush_context, add_sovereign_risk_proxy_context, add_uk_cpi_momentum_context, add_uk_political_shock_context, add_weekend_gap_context, add_weekly_floor_context, calculate_multi_tf_fvgs, 
+    add_fvg_order_flow_context, add_judas_swing_context, add_london_counter_fractal_context, add_london_fix_fade_context, add_london_pdh_pdl_sweep_context, add_london_true_trend_context, add_macro_shock_inside_bar_context, add_monday_gap_reversion_context, add_nfp_divergence_context, add_nfp_revision_trap_context, add_ny_sr_touch_context, add_previous_boundaries, add_pure_algo_vol_crush_context, add_retail_sales_divergence_context, add_sovereign_risk_proxy_context, add_thursday_expansion_context, add_tokyo_trap_context, add_turnaround_tuesday_context, add_uk_cpi_momentum_context, add_uk_political_shock_context, add_uk_us_cpi_divergence_context, add_unemp_fakeout_context, add_wednesday_fakeout_context, add_weekend_gap_context, add_weekly_floor_context, calculate_multi_tf_fvgs, 
     add_asian_sweep_context, add_ny_expansion_context, 
     add_weekly_swing_context
 )
@@ -35,7 +35,7 @@ class LabEngine:
             return True
         except Exception as e:
             print(f"❌ Critical Error in Data Pipeline: {e}")
-            traceback.print_exc()  # Prints the exact line where the error occurred
+            traceback.print_exc()
             return False
 
     def _load_and_filter_data(self):
@@ -59,11 +59,8 @@ class LabEngine:
         if self.df.index.tz is None:
             self.df.index = self.df.index.tz_localize('UTC')
             
-        # KEEP the master index in UTC for the Evaluator, 
-        # but calculate the Session Hours dynamically in Kyiv Time!
         self.df['UA_Hour'] = self.df.index.tz_convert('Europe/Kyiv').hour
         
-
         if self.df['Volume'].sum() == 0:
             print("     ! Warning: Zero volume detected. Simulating Tick Volume...")
             self.df['Volume'] = abs(self.df['High'] - self.df['Low']) * 100000
@@ -126,24 +123,80 @@ class LabEngine:
         self.df = add_nfp_revision_trap_context(self.df, events)
         self.df = add_cpi_match_mean_reversion_context(self.df, events)
         self.df = add_cb_divergence_state_context(self.df, events)
+        self.df = add_fomc_sell_the_news_context(self.df, events)
+        self.df = add_uk_us_cpi_divergence_context(self.df, events)
+        self.df = add_unemp_fakeout_context(self.df, events)
+        self.df = add_retail_sales_divergence_context(self.df, events)
+        self.df = add_friday_reversal_context(self.df, events)
+        self.df = add_monday_gap_reversion_context(self.df, events)
+        self.df = add_turnaround_tuesday_context(self.df, events)
+        self.df = add_wednesday_fakeout_context(self.df, events)
+        self.df = add_thursday_expansion_context(self.df, events)
+        self.df = add_london_fix_fade_context(self.df, events)
+        self.df = add_tokyo_trap_context(self.df, events)
+        self.df = add_asian_box_breakout_context(self.df, events)
+        self.df = add_london_true_trend_context(self.df, events)
+        self.df = add_judas_swing_context(self.df, events)
 
     def run_hypothesis(self, hypothesis):
-        """Simulates the environment row-by-row for the strategy."""
+        """Simulates the environment row-by-row with Path-Dependent 2RR Trade Management."""
         current_day = None
+        active_trades = []
 
         for index, row in self.df.iterrows():
+            
+            # ==========================================
+            # 1. TRADE MANAGEMENT (Check SL/TP for active trades)
+            # ==========================================
+            still_active = []
+            for trade in active_trades:
+                if trade.get('Status') != 'Active':
+                    continue
+                    
+                high = row['High']
+                low = row['Low']
+                
+                if trade['Direction'] == 'Long':
+                    # Консервативный тест: всегда сначала проверяем Стоп-лосс
+                    if low <= trade['SL_Price']:
+                        trade['Outcome'] = 'Loss'
+                        trade['Status'] = 'Closed'
+                        trade['Exit_Time'] = index
+                    elif high >= trade['TP_Price']:
+                        trade['Outcome'] = 'Win'
+                        trade['Status'] = 'Closed'
+                        trade['Exit_Time'] = index
+                    else:
+                        still_active.append(trade)
+                        
+                elif trade['Direction'] == 'Short':
+                    if high >= trade['SL_Price']:
+                        trade['Outcome'] = 'Loss'
+                        trade['Status'] = 'Closed'
+                        trade['Exit_Time'] = index
+                    elif low <= trade['TP_Price']:
+                        trade['Outcome'] = 'Win'
+                        trade['Status'] = 'Closed'
+                        trade['Exit_Time'] = index
+                    else:
+                        still_active.append(trade)
+
+            # Обновляем список активных сделок
+            active_trades = still_active
+
+            # ==========================================
+            # 2. EVALUATE NEW SIGNALS (JSON Rule Checker)
+            # ==========================================
             day_date = index.date()
             if day_date != current_day:
                 current_day = day_date
                 
-            # 1. Track the number of trades BEFORE evaluating the row
             triggers_before = len(hypothesis.triggers)
-            
-            # 2. Evaluate the row (Let the JSON check its entry rules)
             hypothesis.evaluate_row(row, index)
 
-            # 3. --- GLOBAL TREND GUARD ---
-            # If a new trade was just triggered, we inspect it!
+            # ==========================================
+            # 3. GLOBAL TREND GUARD & TRADE INITIALIZATION
+            # ==========================================
             if len(hypothesis.triggers) > triggers_before:
                 new_trade = hypothesis.triggers[-1]
                 trend_prob = row.get('HTF_Bullish_Prob', 50.0)
@@ -169,10 +222,34 @@ class LabEngine:
                     row.get('CPI_Match_Fade_Short', 0) == 1 or
                     row.get('CPI_Match_Fade_Long', 0) == 1 or
                     row.get('CB_Divergence_Long', 0) == 1 or
-                    row.get('CB_Divergence_Short', 0) == 1
+                    row.get('CB_Divergence_Short', 0) == 1 or
+                    row.get('FOMC_Sell_News_Long', 0) == 1 or
+                    row.get('Macro_CPI_Div_Long', 0) == 1 or
+                    row.get('Unemp_Fakeout_Long', 0) == 1 or
+                    row.get('Retail_Div_Long', 0) == 1 or
+                    row.get('Friday_Reversal_Short', 0) == 1 or
+                    row.get('Friday_Reversal_Long', 0) == 1 or
+                    row.get('Monday_Reversion_Short', 0) == 1 or
+                    row.get('Monday_Reversion_Long', 0) == 1 or
+                    row.get('Tuesday_Resumption_Long', 0) == 1 or
+                    row.get('Tuesday_Resumption_Short', 0) == 1 or
+                    row.get('Wed_Fakeout_Short', 0) == 1 or
+                    row.get('Wed_Fakeout_Long', 0) == 1 or
+                    row.get('Thursday_Trend_Long', 0) == 1 or
+                    row.get('Thursday_Trend_Short', 0) == 1 or
+                    row.get('Fix_Fade_Short', 0) == 1 or
+                    row.get('Fix_Fade_Long', 0) == 1 or
+                    row.get('Tokyo_Trap_Short', 0) == 1 or
+                    row.get('Tokyo_Trap_Long', 0) == 1 or
+                    row.get('Asian_Box_Long', 0) == 1 or
+                    row.get('Asian_Box_Short', 0) == 1 or
+                    row.get('LO_True_Trend_Long', 0) == 1 or
+                    row.get('LO_True_Trend_Short', 0) == 1 or
+                    row.get('Judas_Short', 0) == 1 or
+                    row.get('Judas_Long', 0) == 1
                 )
                 
-                # The Rules of the Guard:
+                # Защита по тренду
                 if not is_shock:
                     kill_long = (direction == 'Long') and (trend_prob < 55)
                     kill_short = (direction == 'Short') and (trend_prob > 45)
@@ -180,3 +257,44 @@ class LabEngine:
                     if kill_long or kill_short:
                         hypothesis.triggers.pop()
                         hypothesis.daily_logs.pop()
+                        continue
+                
+                # --- ИНИЦИАЛИЗАЦИЯ 2RR СДЕЛКИ ---
+                entry_price = row['Close']
+                sl_price = None
+                
+                # Магия поиска SL: Движок сканирует колонки, оканчивающиеся на '_SL'
+                for col in self.df.columns:
+                    if col.endswith('_SL') and pd.notna(row.get(col)):
+                        base_feature = col.replace('_SL', '')
+                        # Если это именно та фича, которая дала сигнал (== 1)
+                        if row.get(base_feature, 0) == 1:
+                            sl_price = row[col]
+                            break
+                
+                # Если вы забыли прописать SL в htf_features.py, движок не упадет, а поставит 1 ATR
+                if sl_price is None or pd.isna(sl_price):
+                    atr = row.get('ATR_14D', 0.0020)
+                    if direction == 'Long':
+                        sl_price = entry_price - atr
+                    else:
+                        sl_price = entry_price + atr
+                
+                # Расчет Risk и жесткого Take Profit (1:2)
+                if direction == 'Long':
+                    risk = entry_price - sl_price
+                    if risk <= 0: risk = row.get('ATR_14D', 0.0020) # Защита от нулевого риска
+                    tp_price = entry_price + (2 * risk)
+                else: # Short
+                    risk = sl_price - entry_price
+                    if risk <= 0: risk = row.get('ATR_14D', 0.0020)
+                    tp_price = entry_price - (2 * risk)
+                
+                # Записываем данные по сделке напрямую в словарь триггера
+                new_trade['Entry_Price'] = entry_price
+                new_trade['SL_Price'] = sl_price
+                new_trade['TP_Price'] = tp_price
+                new_trade['Status'] = 'Active'
+                new_trade['Outcome'] = 'Pending' # Будет заменено на Win или Loss
+                
+                active_trades.append(new_trade)

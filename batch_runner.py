@@ -2,7 +2,8 @@ import os
 import json
 import shutil
 import glob
-import pandas as pd 
+import pandas as pd
+from sklearn import metrics 
 
 from src.core.engine import LabEngine
 from src.hypotheses.generic_json_hypothesis import GenericJSONHypothesis
@@ -48,7 +49,7 @@ def process_pending_hypotheses():
 
         engine = LabEngine(
             data_file=processed_data_path,
-            start_date="2003-01-01",
+            start_date="2020-01-01",
             end_date="2026-02-27",
             timeframe=timeframe
         )
@@ -114,15 +115,15 @@ def process_pending_hypotheses():
         pd.DataFrame(hypothesis.daily_logs).to_csv(audit_filename, index=False)
         # ==========================================================
 
-        print(f"=========================================")
-        print(f"  TEAR SHEET: {hypothesis.name}")
-        print(f"=========================================")
-        print(f"  Frequency             : {metrics.get('Frequency', 0)}")
-        print(f"  Optimal Horizon       : {h} Hours")
-        print(f"  Best IC ({h}H)        : {metrics.get(f'IC_{h}H', 0)}")
-        print(f"  Win Rate ({h}H)       : {win_rate}% ({wins}W / {losses}L)")
-        print(f"  Best T-Stat ({h}H)    : {t_stat}")
-        print(f"=========================================")
+        print("=========================================")
+        print(f"  TEAR SHEET: {metrics['Hypothesis']}")
+        print("=========================================")
+        print(f"  Frequency          : {metrics['Frequency']}")
+        print(f"  Win Rate (1:2 RR)  : {metrics.get('Win_Rate_%', 0)}% ({metrics.get('Wins', 0)}W / {metrics.get('Losses', 0)}L)")
+        print(f"  Expectancy (R)     : {metrics.get('Expectancy_R', 0)}")
+        print(f"  T-Stat             : {metrics.get('T_Stat', 0)}")
+        print("=========================================")
+        print(f"Status: {metrics['Status']}")
 
         # Умная логика промоушена:
         freq = metrics.get('Frequency', 0)

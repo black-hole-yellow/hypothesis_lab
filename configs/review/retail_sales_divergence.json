@@ -1,0 +1,37 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_035_RETAIL_SALES_DIVERGENCE",
+    "name": "Retail Sales Divergence (Consumer Strength)",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Если розничные продажи в США выходят хуже ожиданий, а в Великобритании бьют прогнозы, возникает дивергенция потребительского спроса. Доллар слабеет из-за страхов замедления ВВП США, а фунт получает поддержку. Движение отрабатывается в течение текущей торговой сессии."
+  },
+  "universe": {
+    "instruments": ["GBPUSD"],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "Retail_Div_Long"
+    ]
+  },
+  "parameters": {},
+  "logic": {
+    "evaluation_metric": "Close",
+    "filters": [],
+    "entry_rules": {
+      "long_trigger": [
+        {
+          "comment": "Макро-пазл сошелся: US Miss + UK Beat. Лонг GBP/USD.",
+          "feature": "Retail_Div_Long",
+          "operator": ">",
+          "value": 0
+        }
+      ],
+      "short_trigger": []
+    },
+    "exit_rules": {
+      "max_hold_time_hours": 8
+    }
+  }
+}

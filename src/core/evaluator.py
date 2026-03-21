@@ -1,8 +1,6 @@
 import pandas as pd
 import numpy as np
-from scipy.stats import spearmanr
 import os
-import warnings
 
 class SignalEvaluator:
     def __init__(self, df: pd.DataFrame, triggers: list, hypothesis_name: str, target_col: str = 'Close'):
@@ -10,95 +8,58 @@ class SignalEvaluator:
         self.triggers = triggers
         self.hypothesis_name = hypothesis_name
         self.target_col = target_col
-        
-        # Build the Signal Vector (+1 for Long, -1 for Short, 0 for Neutral)
-        self.df['Signal'] = 0.0
-        for t in triggers:
-            # Assuming your trigger dict has 'Direction' ('Long'/'Short') and 'Datetime'
-            val = 1.0 if t.get('Direction', 'Long') == 'Long' else -1.0
-            if t['Datetime'] in self.df.index:
-                self.df.loc[t['Datetime'], 'Signal'] = val
 
     def calculate_metrics(self) -> dict:
-        signal = self.df['Signal']
-        active_signals = signal[signal != 0]
-        freq = len(active_signals)
+        # 1. Отбираем только закрытые сделки с известным результатом
+        completed_trades = [t for t in self.triggers if t.get('Outcome') in ['Win', 'Loss']]
+        freq = len(completed_trades)
         
         if freq < 2:
-            return {'Hypothesis': self.hypothesis_name, 'Status': 'FAILED (Not enough data)', 'Frequency': freq}
+            return {
+                'Hypothesis': self.hypothesis_name, 
+                'Status': 'FAILED (Not enough data)', 
+                'Frequency': freq,
+                'Win_Rate_%': 0.0,
+                'Expectancy_R': 0.0,
+                'T_Stat': 0.0
+            }
 
-        # 1. Forward Returns (1H, 4H, 12H, 24H)
-        horizons = [1, 4, 12, 24, 48, 72]
+        # 2. Подсчет базовой статистики
+        wins = sum(1 for t in completed_trades if t['Outcome'] == 'Win')
+        losses = freq - wins
+        win_rate = wins / freq
+        loss_rate = losses / freq
+        
+        # 3. Расчет математического ожидания (Expectancy / EV) в R-множителях
+        # Правило: Win = +2R, Loss = -1R
+        ev_r = (win_rate * 2.0) - (loss_rate * 1.0)
+        
+        # 4. Расчет T-Statistic для R-множителей
+        # Дисперсия (Variance) = E[X^2] - (E[X])^2
+        # E[X^2] = win_rate * (2.0)^2 + loss_rate * (-1.0)^2
+        e_x2 = (win_rate * 4.0) + (loss_rate * 1.0)
+        variance = e_x2 - (ev_r ** 2)
+        std_dev = np.sqrt(variance) if variance > 0 else 1e-8
+        
+        # T-Stat = (Среднее / Стандартное отклонение) * sqrt(N)
+        t_stat = (ev_r / std_dev) * np.sqrt(freq) if freq > 0 else 0.0
+
         metrics = {
             'Hypothesis': self.hypothesis_name,
             'Frequency': freq,
-            'Status': 'PENDING'
+            'Wins': wins,
+            'Losses': losses,
+            'Win_Rate_%': round(win_rate * 100, 2),
+            'Expectancy_R': round(ev_r, 4),
+            'T_Stat': round(t_stat, 2),
         }
 
-        best_ic = -float('inf')
-        best_horizon = horizons[0]
-        best_t_stat = -float('inf')
-
-        for h in horizons:
-            # Shift negative to look into the future
-            self.df[f'Fwd_Ret_{h}'] = (self.df[self.target_col].shift(-h) / self.df[self.target_col]) - 1
-            
-            # Mask to only evaluate periods where a signal fired
-            mask = (self.df['Signal'] != 0) & (self.df[f'Fwd_Ret_{h}'].notna())
-            eval_df = self.df[mask]
-            
-            if len(eval_df) < 2: continue
-
-            # Directional Accuracy (Hit Ratio)
-            hits = np.sign(eval_df['Signal']) == np.sign(eval_df[f'Fwd_Ret_{h}'])
-            
-            win_count = int(hits.sum())
-            loss_count = int(len(hits) - win_count)
-            
-            metrics[f'Hit_Ratio_{h}H'] = round(hits.mean() * 100, 2)
-            metrics[f'Wins_{h}H'] = win_count
-            metrics[f'Losses_{h}H'] = loss_count
-
-            # Information Coefficient (Spearman Rank)
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                ic, _ = spearmanr(eval_df['Signal'], eval_df[f'Fwd_Ret_{h}'])
-
-            
-            
-            # --- THE FIX FOR ONE-SIDED EVENT SIGNALS ---
-            if np.isnan(ic):
-                # Если сигнал всегда смотрит в одну сторону, Спирмен ломается.
-                # Аппроксимируем IC через математическое преимущество (Edge).
-                # 75% WR -> IC = 0.5 | 50% WR -> IC = 0.0
-                ic = (hits.mean() - 0.5) * 2 
-            
-            # T-Statistic of the IC (Degrees of freedom = N - 2)
-            n = len(eval_df)
-            t_stat = ic * np.sqrt((n - 2) / ((1 - ic**2) + 1e-8)) if n > 2 else 0.0
-            
-            metrics[f'IC_{h}H'] = round(ic, 4)
-            metrics[f'T_Stat_{h}H'] = round(t_stat, 2)
-
-            # Track the Optimal Holding Period (добавлен fallback для первой итерации)
-            if t_stat > best_t_stat or best_horizon == 0:
-                best_t_stat = t_stat
-                best_ic = ic
-                best_horizon = h
-                metrics['Best_Win_Count'] = win_count
-                metrics['Best_Loss_Count'] = loss_count
-                
-
-        metrics['Optimal_Hold_Hours'] = best_horizon
-        metrics['Max_IC'] = round(best_ic, 4)
-        metrics['Max_T_Stat'] = round(best_t_stat, 2)
-
-        # 2. Decision Gate: Pass or Fail?
-        # We want a positive edge (IC > 0.02) and statistical significance (T > 2.0)
-        if best_t_stat >= 2.0 and best_ic > 0.0:
+        # 5. Гейт принятия решения (Decision Gate)
+        # Нам нужно положительное матожидание (EV > 0) и стат. значимость (T-Stat > 2.0)
+        if t_stat >= 2.0 and ev_r > 0.0:
             metrics['Status'] = 'PASSED'
         else:
-            metrics['Status'] = 'FAILED (No Edge)'
+            metrics['Status'] = 'FAILED (No Edge or Low Significance)'
 
         return metrics
 

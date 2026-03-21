@@ -745,8 +745,6 @@ def add_geopolitical_shock_context(df: pd.DataFrame, events: list) -> pd.DataFra
             # Ищем точное совпадение
             if rounded_dt in df.index:
                 df.loc[rounded_dt, 'Geo_Shock_Short'] = 1
-            else:
-                print(f"   ! Пропуск: Свеча {rounded_dt} ({event.get('name')}) не найдена в данных (выходной/гэп).")
         except Exception as e:
             print(f"Skipping event {event.get('name')} due to error: {e}")
             
@@ -1157,8 +1155,6 @@ def add_nfp_revision_trap_context(df: pd.DataFrame, events: list) -> pd.DataFram
         except Exception as e:
             pass
 
-    print(f"✅ РАДАР REVISION TRAP: Найдено {matched_events} из {len(trap_events)} событий.")
-
     # Протягиваем уровень и направление вперед ровно на 4 ЧАСА
     df['Trap_Level'] = df['Trap_Level'].ffill(limit=4)
     df['Trap_Initial_Dir'] = df['Trap_Initial_Dir'].ffill(limit=4)
@@ -1219,7 +1215,6 @@ def add_cpi_match_mean_reversion_context(df: pd.DataFrame, events: list) -> pd.D
         except Exception as e:
             pass
             
-    print(f"✅ РАДАР CPI MATCH: Найдено {matched_events} из {len(cpi_events)} событий '0 Delta'.")
 
     return df
 
@@ -1262,16 +1257,563 @@ def add_cb_divergence_state_context(df: pd.DataFrame, events: list) -> pd.DataFr
     df['Fed_State'] = df['Fed_State'].ffill()
     df['BoE_State'] = df['BoE_State'].ffill()
 
-    # 4. ТРИГГЕР: Ищем момент, когда BoE "Ястреб" (+1), а ФРС "Голубь" (-1)
-    # Сделка открывается ТОЛЬКО в момент смены состояния (чтобы не спамить)
-    is_bullish_divergence = (df['BoE_State'] == 1) & (df['Fed_State'] == -1)
-    df['CB_Divergence_Long'] = (is_bullish_divergence & (~is_bullish_divergence.shift(1).fillna(False))).astype(int)
+    # Создаем базовые "блоки" расхождений (1 = есть расхождение, 0 = нет)
+    df['Is_Bullish_Div'] = ((df['BoE_State'] == 1) & (df['Fed_State'] == -1)).astype(int)
+    df['Is_Bearish_Div'] = ((df['BoE_State'] == -1) & (df['Fed_State'] == 1)).astype(int)
 
-    # Триггер на Шорт: BoE "Голубь" (-1), а ФРС "Ястреб" (+1)
-    is_bearish_divergence = (df['BoE_State'] == -1) & (df['Fed_State'] == 1)
-    df['CB_Divergence_Short'] = (is_bearish_divergence & (~is_bearish_divergence.shift(1).fillna(False))).astype(int)
+    # 4. ТРИГГЕР (Защита от спама): 
+    # Входим ТОЛЬКО в тот самый 1-й час, когда состояние переключилось с 0 на 1.
+    df['CB_Divergence_Long'] = ((df['Is_Bullish_Div'] == 1) & (df['Is_Bullish_Div'].shift(1) == 0)).astype(int)
+    df['CB_Divergence_Short'] = ((df['Is_Bearish_Div'] == 1) & (df['Is_Bearish_Div'].shift(1) == 0)).astype(int)
 
-    df.drop(columns=['Fed_State', 'BoE_State'], inplace=True)
+    # Очистка
+    df.drop(columns=['Fed_State', 'BoE_State', 'Is_Bullish_Div', 'Is_Bearish_Div'], inplace=True, errors='ignore')
+    return df
+
+def add_fomc_sell_the_news_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
+    """
+    Паттерн: Buy the Rumor, Sell the News (FOMC).
+    Если ФРС повышает ставку ровно так, как ожидалось (Priced In),
+    институционалы фиксируют лонги по USD. GBP/USD растет.
+    """
+    df = df.copy()
+    df['FOMC_Sell_News_Long'] = 0
+    
+    fomc_events = [e for e in events if e.get('category') == 'US_FOMC_InLine_Hike']
+    matched_events = 0
+
+    for event in fomc_events:
+        try:
+            dt = pd.to_datetime(event['start_date'])
+            dt = dt.tz_localize('UTC') if dt.tz is None else dt.tz_convert('UTC')
+            rounded_dt = dt.floor('h')
+            
+            if rounded_dt in df.index:
+                matched_events += 1
+                # Триггер: Покупаем GBP/USD (продаем USD) на закрытии часа релиза
+                df.loc[rounded_dt, 'FOMC_Sell_News_Long'] = 1
+        except Exception as e:
+            pass
+    
+    return df
+
+def add_uk_us_cpi_divergence_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
+    df = df.copy()
+    
+    # Создаем колонки только для МОМЕНТА выхода новости (будут заполнены только в 1 час)
+    df['US_CPI_Release'] = np.nan
+    df['UK_CPI_Release'] = np.nan
+    
+    # 1. Отмечаем ТОЛЬКО час выхода US CPI (Cold)
+    us_events = [e for e in events if e.get('category') == 'US_CPI_Cold']
+    for event in us_events:
+        try:
+            dt = pd.to_datetime(event['start_date']).tz_localize('UTC') if pd.to_datetime(event['start_date']).tz is None else pd.to_datetime(event['start_date']).tz_convert('UTC')
+            rounded_dt = dt.floor('h')
+            if rounded_dt in df.index:
+                df.loc[rounded_dt, 'US_CPI_Release'] = -1
+        except: pass
+
+    # 2. Отмечаем ТОЛЬКО час выхода UK CPI (Hot)
+    uk_events = [e for e in events if e.get('category') == 'UK_CPI_Hot']
+    for event in uk_events:
+        try:
+            dt = pd.to_datetime(event['start_date']).tz_localize('UTC') if pd.to_datetime(event['start_date']).tz is None else pd.to_datetime(event['start_date']).tz_convert('UTC')
+            rounded_dt = dt.floor('h')
+            if rounded_dt in df.index:
+                df.loc[rounded_dt, 'UK_CPI_Release'] = 1
+        except: pass
+
+    # 3. Создаем "Память" рынка на 30 дней (720 часов)
+    # Эти колонки просто хранят статус последнего отчета, но НЕ используются как триггеры
+    df['US_Cold_Memory'] = df['US_CPI_Release'].ffill(limit=720)
+    df['UK_Hot_Memory'] = df['UK_CPI_Release'].ffill(limit=720)
+
+    # 4. ЖЕЛЕЗОБЕТОННЫЙ ТРИГГЕР ВХОДА
+    df['Macro_CPI_Div_Long'] = 0
+
+    # Сценарий А: Сейчас вышел UK CPI (Hot), проверяем, был ли прошлый US CPI холодным
+    uk_trigger_mask = (df['UK_CPI_Release'] == 1) & (df['US_Cold_Memory'] == -1)
+    
+    # Сценарий Б: Сейчас вышел US CPI (Cold), проверяем, был ли прошлый UK CPI горячим
+    us_trigger_mask = (df['US_CPI_Release'] == -1) & (df['UK_Hot_Memory'] == 1)
+
+    # Записываем сигнал только в час публикации новости
+    df.loc[uk_trigger_mask | us_trigger_mask, 'Macro_CPI_Div_Long'] = 1
+
+    # Очистка рабочего мусора
+    df.drop(columns=['US_CPI_Release', 'UK_CPI_Release', 'US_Cold_Memory', 'UK_Hot_Memory'], inplace=True, errors='ignore')
+    
+    return df
+
+def add_unemp_fakeout_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
+    """
+    Торгует ловушку (Fakeout) на данных по безработице.
+    Если безработица США растет, но GBP/USD падает в первый час (DXY rally),
+    это ложное движение. Входим в лонг под пробой 4H максимума.
+    """
+    df = df.copy()
+    
+    # Вычисляем максимум за предыдущие 4 часа
+    df['Prev_4H_High'] = df['High'].rolling(window=4, min_periods=1).max().shift(1)
+    df['Unemp_Fakeout_Long'] = 0
+
+    target_events = [e for e in events if e.get('category') == 'US_Unemp_Rise_UK_Stable']
+    matched_events = 0
+
+    for event in target_events:
+        try:
+            dt = pd.to_datetime(event['start_date'])
+            dt = dt.tz_localize('UTC') if dt.tz is None else dt.tz_convert('UTC')
+            rounded_dt = dt.floor('h')
+
+            if rounded_dt in df.index:
+                matched_events += 1
+                
+                # ЛОГИКА FAKEOUT: 
+                # Новость для доллара плохая, но свеча GBP/USD закрылась в МИНУСЕ (Close < Open).
+                # Это и есть та самая иррациональная защитная реакция рынка, которую мы выкупаем.
+                if df.loc[rounded_dt, 'Close'] < df.loc[rounded_dt, 'Open']:
+                    df.loc[rounded_dt, 'Unemp_Fakeout_Long'] = 1
+                    
+        except Exception as e:
+            pass
+
+    
+    # Очистка
+    df.drop(columns=['Prev_4H_High'], inplace=True, errors='ignore') 
+    return df
+
+def add_retail_sales_divergence_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
+    """
+    Торгует дивергенцию розничных продаж (Retail Sales).
+    Условие: US Retail Miss (потребитель США слаб) + UK Retail Beat (потребитель UK силен).
+    """
+    df = df.copy()
+    
+    # Колонки для точного часа релиза
+    df['US_Retail_Release'] = np.nan
+    df['UK_Retail_Release'] = np.nan
+    
+    us_events = [e for e in events if e.get('category') == 'US_Retail_Miss']
+    for event in us_events:
+        try:
+            dt = pd.to_datetime(event['start_date']).tz_localize('UTC') if pd.to_datetime(event['start_date']).tz is None else pd.to_datetime(event['start_date']).tz_convert('UTC')
+            if dt.floor('h') in df.index:
+                df.loc[dt.floor('h'), 'US_Retail_Release'] = -1
+        except: pass
+
+    uk_events = [e for e in events if e.get('category') == 'UK_Retail_Beat']
+    for event in uk_events:
+        try:
+            dt = pd.to_datetime(event['start_date']).tz_localize('UTC') if pd.to_datetime(event['start_date']).tz is None else pd.to_datetime(event['start_date']).tz_convert('UTC')
+            if dt.floor('h') in df.index:
+                df.loc[dt.floor('h'), 'UK_Retail_Release'] = 1
+        except: pass
+
+    # Память рынка (держим статус в уме 30 дней = 720 часов)
+    df['US_Retail_Memory'] = df['US_Retail_Release'].ffill(limit=720)
+    df['UK_Retail_Memory'] = df['UK_Retail_Release'].ffill(limit=720)
+
+    # ЖЕЛЕЗОБЕТОННЫЙ ТРИГГЕР ВХОДА
+    df['Retail_Div_Long'] = 0
+
+    # Сценарий А: Сейчас вышел UK Beat, проверяем, был ли US Miss недавно
+    uk_trigger_mask = (df['UK_Retail_Release'] == 1) & (df['US_Retail_Memory'] == -1)
+    
+    # Сценарий Б: Сейчас вышел US Miss, проверяем, был ли UK Beat недавно
+    us_trigger_mask = (df['US_Retail_Release'] == -1) & (df['UK_Retail_Memory'] == 1)
+
+    # Записываем сигнал ТОЛЬКО в час выхода новости
+    df.loc[uk_trigger_mask | us_trigger_mask, 'Retail_Div_Long'] = 1
+
+    # Очистка
+    df.drop(columns=['US_Retail_Release', 'UK_Retail_Release', 'US_Retail_Memory', 'UK_Retail_Memory'], inplace=True, errors='ignore')
+    
+    return df
+
+def add_friday_reversal_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    """
+    Торгует пятничную фиксацию прибыли (Institutional Risk-Off).
+    Если с понедельника пара выросла более чем на 2 дневных ATR, 
+    в пятницу в 16:00 UTC институционалы начнут закрывать лонги (шорт).
+    Для симметрии добавлено условие и на лонг (выкуп сильного падения).
+    """
+    df = df.copy()
+    df['Friday_Reversal_Short'] = 0
+    df['Friday_Reversal_Long'] = 0
+    
+    # 1. Считаем грубый дневной ATR на часовиках
+    # Берем размах (High - Low) за 24 часа и усредняем за 14 дней (336 часов)
+    df['Daily_Range'] = df['High'].rolling(24).max() - df['Low'].rolling(24).min()
+    df['ATR_14D'] = df['Daily_Range'].rolling(336).mean()
+    
+    # 2. Находим цену открытия недели (Понедельник)
+    # На рынке Форекс от понедельника 00:00 до пятницы 16:00 проходит ровно 112 часов торгов (без учета праздников).
+    # Используем shift(112) как надежный прокси для старта недели.
+    df['Week_Open'] = df['Open'].shift(112)
+    
+    # 3. Фильтр времени: Пятница (dayofweek == 4), 16:00 UTC
+    is_friday_16 = (df.index.dayofweek == 4) & (df.index.hour == 16)
+    
+    # 4. Считаем пройденное расстояние за неделю
+    weekly_rally = df['Close'] - df['Week_Open']
+    weekly_dump = df['Week_Open'] - df['Close']
+    
+    # 5. ТРИГГЕРЫ: Движение должно быть больше 2 * ATR_14D
+    short_condition = is_friday_16 & (weekly_rally > (2 * df['ATR_14D']))
+    long_condition = is_friday_16 & (weekly_dump > (2 * df['ATR_14D']))
+    
+    df.loc[short_condition, 'Friday_Reversal_Short'] = 1
+    df.loc[long_condition, 'Friday_Reversal_Long'] = 1
+    
+    # Очистка рабочего мусора
+    df.drop(columns=['Daily_Range', 'ATR_14D', 'Week_Open'], inplace=True, errors='ignore')
+    
+    return df
+
+def add_monday_gap_reversion_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    """
+    H_037: Monday Opening Gap Reversion.
+    Если прошлая неделя закрылась с аномальным отклонением (> 2 ATR),
+    открываем позицию на возврат в первый час понедельника.
+    """
+    df = df.copy()
+    df['Monday_Reversion_Short'] = 0
+    df['Monday_Reversion_Long'] = 0
+    
+    # 1. ATR для измерения "нормальности" движения (24ч * 14д)
+    df['Daily_Range'] = df['High'].rolling(24).max() - df['Low'].rolling(24).min()
+    df['ATR_14D'] = df['Daily_Range'].rolling(336).mean()
+    
+    # 2. Результат недели: Цена сейчас (Пт 21:00 / Пн 00:00) минус Цена 5 дней назад
+    # 120 часов — это полная торговая неделя
+    df['Weekly_Delta'] = df['Close'] - df['Open'].shift(120)
+    
+    # 3. Условие: Понедельник, 00:00 UTC
+    is_monday_open = (df.index.dayofweek == 0) & (df.index.hour == 0)
+    
+    # 4. ТРИГГЕРЫ (смотрим на Weekly_Delta относительно ATR на момент открытия)
+    # Если за неделю выросли > 2 ATR -> Шортим в Пн 00:00
+    short_cond = is_monday_open & (df['Weekly_Delta'] > (2 * df['ATR_14D']))
+    # Если за неделю упали > 2 ATR -> Лонгуем в Пн 00:00
+    long_cond = is_monday_open & (df['Weekly_Delta'] < -(2 * df['ATR_14D']))
+    
+    df.loc[short_cond, 'Monday_Reversion_Short'] = 1
+    df.loc[long_cond, 'Monday_Reversion_Long'] = 1
+    
+    # Чистим колонки
+    df.drop(columns=['Daily_Range', 'ATR_14D', 'Weekly_Delta'], inplace=True, errors='ignore')
+    
+    return df
+
+def add_turnaround_tuesday_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    """
+    H_038: Turnaround Tuesday (Trend Resumption).
+    Если прошлая неделя была бычьей, а понедельник - медвежьим (откат),
+    мы покупаем во вторник в 08:00 UTC (Лондон) на возобновление тренда.
+    """
+    df = df.copy()
+    df['Tuesday_Resumption_Long'] = 0
+    df['Tuesday_Resumption_Short'] = 0
+    
+    # 1. Измеряем тренд прошлой недели (120 часов)
+    # Используем сдвиг на 144 часа (120ч неделя + 24ч понедельник), чтобы получить цену открытия прошлой недели
+    df['Prev_Week_Open'] = df['Open'].shift(144)
+    df['Prev_Week_Close'] = df['Close'].shift(24) # Закрытие прошлой пятницы = 24 часа назад от утра вторника
+    
+    # 2. Измеряем тренд Понедельника (последние 24 часа)
+    df['Monday_Open'] = df['Open'].shift(24)
+    df['Monday_Close'] = df['Close'].shift(1)
+    
+    # 3. Триггер времени: Вторник, 08:00 UTC (Открытие Лондона)
+    is_tuesday_london_open = (df.index.dayofweek == 1) & (df.index.hour == 8)
+    
+    # 4. ЛОГИКА ВХОДА
+    # ЛОНГ: Прошлая неделя бычья (Close > Open) И Понедельник медвежий (Close < Open) -> Покупаем откат
+    long_cond = is_tuesday_london_open & (df['Prev_Week_Close'] > df['Prev_Week_Open']) & (df['Monday_Close'] < df['Monday_Open'])
+    
+    # ШОРТ: Прошлая неделя медвежья (Close < Open) И Понедельник бычий (Close > Open) -> Продаем отскок
+    short_cond = is_tuesday_london_open & (df['Prev_Week_Close'] < df['Prev_Week_Open']) & (df['Monday_Close'] > df['Monday_Open'])
+    
+    df.loc[long_cond, 'Tuesday_Resumption_Long'] = 1
+    df.loc[short_cond, 'Tuesday_Resumption_Short'] = 1
+    
+    df.drop(columns=['Prev_Week_Open', 'Prev_Week_Close', 'Monday_Open', 'Monday_Close'], inplace=True, errors='ignore')
+    return df
+
+def add_wednesday_fakeout_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    """
+    H_039: Mid-Week Fakeout (Liquidity Sweep).
+    Среда часто сбивает стопы за максимумами/минимумами Вторника.
+    Если цена пробивает экстремум Вторника, но часовая свеча закрывается откатом (пинбар/поглощение) — входим на разворот.
+    """
+    df = df.copy()
+    df['Wed_Fakeout_Long'] = 0
+    df['Wed_Fakeout_Short'] = 0
+    
+    # 1. Вычисляем дневные максимумы и минимумы
+    df['Date'] = df.index.date
+    daily_hl = df.groupby('Date').agg({'High': 'max', 'Low': 'min'})
+    
+    # Сдвигаем на 1 день, чтобы получить данные "Вчерашнего дня"
+    prev_day_hl = daily_hl.shift(1)
+    
+    # Мапим данные вчерашнего дня на каждый час текущего дня
+    df['Prev_Day_High'] = df['Date'].map(prev_day_hl['High'])
+    df['Prev_Day_Low'] = df['Date'].map(prev_day_hl['Low'])
+    
+    # 2. Изолируем Среду (dayofweek == 2)
+    is_wednesday = df.index.dayofweek == 2
+    
+    # 3. ЛОГИКА ШОРТА (Sweep of High):
+    # Цена поднималась ВЫШЕ максимума вторника, но часовая свеча закрылась НИЖЕ него, 
+    # и сама свеча медвежья (Close < Open)
+    sweep_high = (df['High'] > df['Prev_Day_High']) & (df['Close'] < df['Prev_Day_High']) & (df['Close'] < df['Open'])
+    short_cond = is_wednesday & sweep_high
+    
+    # 4. ЛОГИКА ЛОНГА (Sweep of Low):
+    # Цена падала НИЖЕ минимума вторника, но часовая свеча закрылась ВЫШЕ него,
+    # и сама свеча бычья (Close > Open)
+    sweep_low = (df['Low'] < df['Prev_Day_Low']) & (df['Close'] > df['Prev_Day_Low']) & (df['Close'] > df['Open'])
+    long_cond = is_wednesday & sweep_low
+    
+    df.loc[short_cond, 'Wed_Fakeout_Short'] = 1
+    df.loc[long_cond, 'Wed_Fakeout_Long'] = 1
+    
+    # Очистка рабочего мусора
+    df.drop(columns=['Date', 'Prev_Day_High', 'Prev_Day_Low'], inplace=True, errors='ignore')
+    return df
+
+def add_thursday_expansion_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    """
+    H_040: Thursday Trend Expansion.
+    Если с Понедельника по Среду сформировался четкий тренд,
+    Четверг на открытии Лондона (08:00 UTC) продолжит этот импульс.
+    """
+    df = df.copy()
+    df['Thursday_Trend_Long'] = 0
+    df['Thursday_Trend_Short'] = 0
+    
+    # 1. Считаем дневной ATR (для понимания волатильности)
+    df['Daily_Range'] = df['High'].rolling(24).max() - df['Low'].rolling(24).min()
+    df['ATR_14D'] = df['Daily_Range'].rolling(336).mean()
+    
+    # 2. Находим цены Открытия Недели и Закрытия Среды
+    # В четверг в 08:00 UTC открытие недели (понедельник 00:00) было ровно 80 часов назад
+    df['Week_Open'] = df['Open'].shift(80)
+    # Закрытие среды (23:00) было 9 часов назад относительно 08:00 четверга
+    df['Wed_Close'] = df['Close'].shift(9) 
+    
+    # 3. Триггер времени: Четверг, 08:00 UTC
+    is_thursday_london_open = (df.index.dayofweek == 3) & (df.index.hour == 8)
+    
+    # 4. ЛОГИКА ВХОДА: Тренд должен быть больше 0.5 * ATR (отсеиваем флэт)
+    trend_up = (df['Wed_Close'] - df['Week_Open']) > (0.5 * df['ATR_14D'])
+    trend_down = (df['Week_Open'] - df['Wed_Close']) > (0.5 * df['ATR_14D'])
+    
+    long_cond = is_thursday_london_open & trend_up
+    short_cond = is_thursday_london_open & trend_down
+    
+    df.loc[long_cond, 'Thursday_Trend_Long'] = 1
+    df.loc[short_cond, 'Thursday_Trend_Short'] = 1
+    
+    df.drop(columns=['Week_Open', 'Wed_Close', 'Daily_Range', 'ATR_14D'], inplace=True, errors='ignore')
+    return df
+
+def add_london_fix_fade_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    """
+    H_041: Friday London Fix Fade.
+    В 16:00 UTC в пятницу происходит пик институциональной активности (Fix).
+    Если неделя была экстремальной (> 1.5 ATR), после 16:00 происходит 
+    откат из-за закрытия позиций перед выходными.
+    """
+    df = df.copy()
+    df['Fix_Fade_Short'] = 0
+    df['Fix_Fade_Long'] = 0
+    
+    # 1. Измеряем ATR за 2 недели
+    df['Daily_Range'] = df['High'].rolling(24).max() - df['Low'].rolling(24).min()
+    df['ATR_14D'] = df['Daily_Range'].rolling(336).mean()
+    
+    # 2. Результат недели на текущий момент (Пт 16:00)
+    # Считаем разницу между Пн 00:00 (112 часов назад) и сейчас
+    df['Week_Performance'] = df['Close'] - df['Open'].shift(112)
+    
+    # 3. Триггер времени: Пятница, 16:00 UTC
+    is_friday_fix = (df.index.dayofweek == 4) & (df.index.hour == 16)
+    
+    # 4. ЛОГИКА ВХОДА:
+    # Если неделя выросла более чем на 1.5 ATR -> Шортим в 16:00
+    short_cond = is_friday_fix & (df['Week_Performance'] > (1.5 * df['ATR_14D']))
+    
+    # Если неделя упала более чем на 1.5 ATR -> Лонгуем в 16:00
+    long_cond = is_friday_fix & (df['Week_Performance'] < -(1.5 * df['ATR_14D']))
+    
+    df.loc[short_cond, 'Fix_Fade_Short'] = 1
+    df.loc[long_cond, 'Fix_Fade_Long'] = 1
+    
+    df.drop(columns=['Daily_Range', 'ATR_14D', 'Week_Performance'], inplace=True, errors='ignore')
+    return df
+
+def add_tokyo_trap_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    """
+    H_043: The Tokyo Trap.
+    Если Азия (00:00-07:00) создала направленный тренд > 0.5 ATR,
+    Лондон (08:00) развернет это движение.
+    """
+    df = df.copy()
+    df['Tokyo_Trap_Short'] = 0
+    df['Tokyo_Trap_Long'] = 0
+    
+    # 1. ATR для фильтра силы движения
+    df['Daily_Range'] = df['High'].rolling(24).max() - df['Low'].rolling(24).min()
+    df['ATR_14D'] = df['Daily_Range'].rolling(336).mean()
+    
+    # 2. Цена открытия Азии (00:00) и закрытия (07:00)
+    # В 08:00 (Лондон) открытие Азии было 8 часов назад, закрытие - 1 час назад
+    df['Asia_Open'] = df['Open'].shift(8)
+    df['Asia_Close'] = df['Close'].shift(1)
+    
+    # 3. Триггер времени: Лондон, 08:00 UTC
+    is_london_open = (df.index.hour == 8)
+    
+    # 4. ЛОГИКА ТРЕНДА АЗИИ
+    asia_rally = (df['Asia_Close'] - df['Asia_Open']) > (0.5 * df['ATR_14D'])
+    asia_dump = (df['Asia_Open'] - df['Asia_Close']) > (0.5 * df['ATR_14D'])
+    
+    # 5. СИГНАЛ (Входим ПРОТИВ Азии)
+    df.loc[is_london_open & asia_rally, 'Tokyo_Trap_Short'] = 1
+    df.loc[is_london_open & asia_dump, 'Tokyo_Trap_Long'] = 1
+    
+    df.drop(columns=['Daily_Range', 'ATR_14D', 'Asia_Open', 'Asia_Close'], inplace=True, errors='ignore')
+    return df
+
+def add_asian_box_breakout_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    df = df.copy()
+    df['Asian_Box_Long'] = 0
+    df['Asian_Box_Short'] = 0
+    
+    # 1. ATR для измерения волатильности
+    df['Daily_Range'] = df['High'].rolling(24).max() - df['Low'].rolling(24).min()
+    df['ATR_14D'] = df['Daily_Range'].rolling(336).mean()
+    
+    # 2. Границы Азии (00:00 - 08:00)
+    # Используем окно 8 часов. Для проверки в 09:00 нам нужны данные, закончившиеся в 08:00.
+    df['Asia_High'] = df['High'].rolling(window=8).max().shift(1)
+    df['Asia_Low'] = df['Low'].rolling(window=8).min().shift(1)
+    df['Asia_Range'] = df['Asia_High'] - df['Asia_Low']
+    
+    # 3. Характеристики сигнальной свечи (08:00 UTC)
+    # Нам нужно посмотреть, как закрылась свеча, которая началась в 08:00 и закончилась в 09:00
+    df['Signal_Candle_Close'] = df['Close']
+    df['Signal_Candle_Open'] = df['Open']
+    
+    # 4. Условие входа: Понедельник-Пятница, 09:00 UTC (сразу после сигнальной свечи)
+    is_entry_time = (df.index.hour == 9)
+    
+    # 5. Условие сжатой пружины (проверяем по состоянию на 08:00)
+    is_coiled = df['Asia_Range'].shift(1) < (0.25 * df['ATR_14D'].shift(1))
+    
+    # 6. ОПРЕДЕЛЕНИЕ НАПРАВЛЕНИЯ (Импульс + Пробой)
+    # LONG: Свеча 08:00 закрылась выше хая Азии И она бычья
+    long_breakout = (df['Signal_Candle_Close'].shift(1) > df['Asia_High'].shift(1)) & \
+                    (df['Signal_Candle_Close'].shift(1) > df['Signal_Candle_Open'].shift(1))
+    
+    # SHORT: Свеча 08:00 закрылась ниже лоу Азии И она медвежья
+    short_breakout = (df['Signal_Candle_Close'].shift(1) < df['Asia_Low'].shift(1)) & \
+                     (df['Signal_Candle_Close'].shift(1) < df['Signal_Candle_Open'].shift(1))
+    
+    df.loc[is_entry_time & is_coiled & long_breakout, 'Asian_Box_Long'] = 1
+    df.loc[is_entry_time & is_coiled & short_breakout, 'Asian_Box_Short'] = 1
+    
+    # Очистка
+    df.drop(columns=['Daily_Range', 'ATR_14D', 'Asia_High', 'Asia_Low', 'Asia_Range', 
+                     'Signal_Candle_Close', 'Signal_Candle_Open'], inplace=True, errors='ignore')
+    return df
+
+def add_london_true_trend_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    """
+    H_045: London True Trend (10:00 AM Entry).
+    Пропускаем первые 2 токсичных часа Лондона (08:00-10:00).
+    В 10:00 измеряем чистый вектор. Если тренд сформирован, входим по нему.
+    """
+    df = df.copy()
+    df['LO_True_Trend_Long'] = 0
+    df['LO_True_Trend_Short'] = 0
+    
+    # 1. Измеряем дневной ATR (для понимания нормы волатильности)
+    df['Daily_Range'] = df['High'].rolling(24).max() - df['Low'].rolling(24).min()
+    df['ATR_14D'] = df['Daily_Range'].rolling(336).mean()
+    
+    # 2. Триггер времени: 10:00 UTC (прошло 2 часа с открытия Лондона)
+    is_10_am = (df.index.hour == 9)
+    
+    # 3. Находим цену открытия Лондона (08:00)
+    # Если мы стоим на свече 10:00, то открытие 08:00 было ровно 2 свечи назад
+    df['LO_Open_Price'] = df['Open'].shift(2)
+    
+    # Текущая цена на момент 10:00
+    df['Current_10AM_Price'] = df['Open'] 
+    
+    # 4. Вычисляем Вектор (Displacement) за первые 2 часа
+    # Фильтр: цена должна уйти хотя бы на 0.3 * ATR, чтобы мы поверили, что это тренд, а не флэт
+    trend_up = is_10_am & ((df['Current_10AM_Price'] - df['LO_Open_Price']) > (0.3 * df['ATR_14D']))
+    trend_down = is_10_am & ((df['LO_Open_Price'] - df['Current_10AM_Price']) > (0.3 * df['ATR_14D']))
+    
+    # 5. СИГНАЛЫ
+    df.loc[trend_up, 'LO_True_Trend_Long'] = 1
+    df.loc[trend_down, 'LO_True_Trend_Short'] = 1
+    
+    # Очистка
+    df.drop(columns=['Daily_Range', 'ATR_14D', 'LO_Open_Price', 'Current_10AM_Price'], inplace=True, errors='ignore')
+    return df
+
+def add_judas_swing_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    """
+    H_047: The Judas Swing (Full London Session Sweep).
+    Ищет прокол и возврат за границы Азии в любое время с 08:00 до 16:00 UTC.
+    """
+    df = df.copy()
+    df['Judas_Short'] = 0
+    df['Judas_Short_SL'] = np.nan
+    df['Judas_Long'] = 0
+    df['Judas_Long_SL'] = np.nan
+    
+    # 1. Выделяем Азиатскую сессию (00:00 - 06:59 UTC)
+    df['Day'] = df.index.date
+    asia_mask = (df.index.hour >= 0) & (df.index.hour < 7)
+    
+    # 2. Правильно вычисляем экстремумы Азии и переносим их на ВЕСЬ день
+    daily_asia_high = df[asia_mask].groupby('Day')['High'].max()
+    daily_asia_low = df[asia_mask].groupby('Day')['Low'].min()
+    
+    df['Asia_High_Day'] = df['Day'].map(daily_asia_high)
+    df['Asia_Low_Day'] = df['Day'].map(daily_asia_low)
+    
+    # 3. Расширенное окно охоты: Открытие Лондона -> Лондонский Фиксинг (08:00 - 16:00 UTC)
+    is_hunting_zone = (df.index.hour >= 8) & (df.index.hour <= 16)
+    
+    # 4. ЛОГИКА SWEEP (Односвечной прокол и отторжение)
+    # ШОРТ: Тень свечи пробила Хай Азии, но тело закрылось ниже Хая Азии (и свеча медвежья)
+    sweep_high = (df['High'] > df['Asia_High_Day']) & \
+                 (df['Close'] < df['Asia_High_Day']) & \
+                 (df['Close'] < df['Open'])
+                 
+    # ЛОНГ: Тень свечи пробила Лоу Азии, но тело закрылось выше Лоу Азии (и свеча бычья)
+    sweep_low = (df['Low'] < df['Asia_Low_Day']) & \
+                (df['Close'] > df['Asia_Low_Day']) & \
+                (df['Close'] > df['Open'])
+
+    # 5. Запись сигналов и точных уровней Стоп-Лосса (за хвост прокола)
+    df.loc[is_hunting_zone & sweep_high, 'Judas_Short'] = 1
+    df.loc[is_hunting_zone & sweep_high, 'Judas_Short_SL'] = df['High'] 
+    
+    df.loc[is_hunting_zone & sweep_low, 'Judas_Long'] = 1
+    df.loc[is_hunting_zone & sweep_low, 'Judas_Long_SL'] = df['Low'] 
+    
+    # Очистка мусора
+    df.drop(columns=['Day', 'Asia_High_Day', 'Asia_Low_Day'], inplace=True, errors='ignore')
     return df
 
 def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int = 60) -> pd.DataFrame:

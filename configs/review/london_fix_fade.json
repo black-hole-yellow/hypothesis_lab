@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_041_FIX_FADE",
+    "name": "London Fix Fade (Friday Institutional Reversal)",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Микроструктура пятницы. После завершения Лондонского Фиксинга (16:00 UTC) крупные игроки начинают фиксировать прибыль по недельным трендам, чтобы минимизировать риск переноса позиций через выходные. Это создает разворотный импульс к среднему."
+  },
+  "universe": { "instruments": ["GBPUSD"], "resolution": "1h", "timezone": "UTC" },
+  "data_dependencies": {
+    "required_features": ["Fix_Fade_Long", "Fix_Fade_Short"]
+  },
+  "logic": {
+    "evaluation_metric": "Close",
+    "entry_rules": {
+      "long_trigger": [{ "feature": "Fix_Fade_Long", "operator": ">", "value": 0 }],
+      "short_trigger": [{ "feature": "Fix_Fade_Short", "operator": ">", "value": 0 }]
+    },
+    "exit_rules": { "max_hold_time_hours": 5 }
+  }
+}
