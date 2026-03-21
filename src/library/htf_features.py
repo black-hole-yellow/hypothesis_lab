@@ -1770,48 +1770,112 @@ def add_london_true_trend_context(df: pd.DataFrame, events: list = None) -> pd.D
     return df
 
 def add_judas_swing_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    """
+    H_047: The Judas Swing (Standard 1:2 RR Version).
+    Фильтры: Без Декабря, Без Пятниц.
+    Окно: 10:00 - 18:00 (Kyiv).
+    """
     df = df.copy()
     df['Judas_Short'] = 0
     df['Judas_Short_SL'] = np.nan
     df['Judas_Long'] = 0
     df['Judas_Long_SL'] = np.nan
     
-    # 1. Безопасные даты 
-    df['Day'] = df.index.normalize() 
+    # 1. Границы Азии (00:00 - 06:59 UTC)
+    df['Day_Key'] = df.index.normalize() 
     asia_mask = (df.index.hour >= 0) & (df.index.hour < 7)
     
-    daily_asia_high = df[asia_mask].groupby('Day')['High'].max()
-    daily_asia_low = df[asia_mask].groupby('Day')['Low'].min()
+    daily_stats = df[asia_mask].groupby('Day_Key').agg({'High': 'max', 'Low': 'min'})
+    df['Asia_High_Day'] = df['Day_Key'].map(daily_stats['High'])
+    df['Asia_Low_Day'] = df['Day_Key'].map(daily_stats['Low'])
     
-    df['Asia_High_Day'] = df['Day'].map(daily_asia_high)
-    df['Asia_Low_Day'] = df['Day'].map(daily_asia_low)
+    # 2. ФИЛЬТРЫ ВРЕМЕНИ
+    is_hunting_zone = (df['UA_Hour'] >= 10) & (df['UA_Hour'] <= 18)
+    is_not_friday = (df.index.dayofweek != 4)
+    is_not_december = (df.index.month != 12)
     
-    # 2. Окно охоты
-    is_hunting_zone = (df.index.hour >= 8) & (df.index.hour <= 16)
+    global_time_filter = is_hunting_zone & is_not_friday & is_not_december
     
-    # 3. ЛОГИКА SWEEP (Пинбар + Возврат)
+    # 3. ЛОГИКА SWEEP (Пинбар или Возврат)
+    # ШОРТ
     just_returned_high = (df['Close'] < df['Asia_High_Day']) & (df['Close'].shift(1) >= df['Asia_High_Day'])
-    pinbar_high = (df['High'] > df['Asia_High_Day']) & (df['Close'] < df['Asia_High_Day']) & (df['Open'] <= df['Asia_High_Day'])
+    pinbar_high = (df['High'] > df['Asia_High_Day']) & (df['Close'] < df['Asia_High_Day'])
     sweep_high = (just_returned_high | pinbar_high) & (df['Close'] < df['Open'])
     
+    # ЛОНГ
     just_returned_low = (df['Close'] > df['Asia_Low_Day']) & (df['Close'].shift(1) <= df['Asia_Low_Day'])
-    pinbar_low = (df['Low'] < df['Asia_Low_Day']) & (df['Close'] > df['Asia_Low_Day']) & (df['Open'] >= df['Asia_Low_Day'])
+    pinbar_low = (df['Low'] < df['Asia_Low_Day']) & (df['Close'] > df['Asia_Low_Day'])
     sweep_low = (just_returned_low | pinbar_low) & (df['Close'] > df['Open'])
     
-    # 4. ДИНАМИЧЕСКИЙ СТОП-ЛОСС
+    # 4. СТОП-ЛОСС
     recent_highest = df['High'].rolling(3, min_periods=1).max()
     recent_lowest = df['Low'].rolling(3, min_periods=1).min()
     
-    # 5. СИГНАЛЫ
-    short_condition = is_hunting_zone & sweep_high
-    df.loc[short_condition, 'Judas_Short'] = 1
-    df.loc[short_condition, 'Judas_Short_SL'] = recent_highest
+    # 5. ЗАПИСЬ СИГНАЛОВ
+    df.loc[global_time_filter & sweep_high, 'Judas_Short'] = 1
+    df.loc[global_time_filter & sweep_high, 'Judas_Short_SL'] = recent_highest
     
-    long_condition = is_hunting_zone & sweep_low
-    df.loc[long_condition, 'Judas_Long'] = 1
-    df.loc[long_condition, 'Judas_Long_SL'] = recent_lowest
+    df.loc[global_time_filter & sweep_low, 'Judas_Long'] = 1
+    df.loc[global_time_filter & sweep_low, 'Judas_Long_SL'] = recent_lowest
     
-    df.drop(columns=['Day', 'Asia_High_Day', 'Asia_Low_Day'], inplace=True, errors='ignore')
+    df.drop(columns=['Day_Key', 'Asia_High_Day', 'Asia_Low_Day'], inplace=True, errors='ignore')
+    return df
+
+def add_ny_continuation_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    """
+    H_048: NY Overlap Continuation (Нью-Йоркский Локомотив).
+    Входим в 16:00 UA в сторону сильного лондонского тренда.
+    """
+    df = df.copy()
+    df['NY_Cont_Long'] = 0
+    df['NY_Cont_Long_SL'] = np.nan
+    df['NY_Cont_Short'] = 0
+    df['NY_Cont_Short_SL'] = np.nan
+
+    # 1. Считаем локальный ATR (защита от KeyError)
+    df['Daily_Range'] = df['High'].rolling(24).max() - df['Low'].rolling(24).min()
+    df['ATR_14D'] = df['Daily_Range'].rolling(336).mean()
+
+    # 2. Безопасная работа с датами
+    df['Day_Key'] = df.index.normalize()
+
+    # 3. Фиксируем цены открытия Лондона (10:00) и закрытия (15:00)
+    open_10 = df[df['UA_Hour'] == 10].groupby('Day_Key')['Open'].first()
+    close_15 = df[df['UA_Hour'] == 15].groupby('Day_Key')['Close'].last()
+
+    df['LDN_Open_10'] = df['Day_Key'].map(open_10)
+    df['LDN_Close_15'] = df['Day_Key'].map(close_15)
+
+    # 4. Вычисляем "Вектор Лондона"
+    df['LDN_Vector'] = df['LDN_Close_15'] - df['LDN_Open_10']
+    df['LDN_Distance'] = df['LDN_Vector'].abs()
+
+    # ФИЛЬТР: Вектор должен быть сильным (> 0.5 ATR)
+    strong_trend = df['LDN_Distance'] > (0.5 * df['ATR_14D'])
+
+    # 5. Время входа: 16:00 UA (После открытия акций в США и новостей)
+    is_entry_time = (df['UA_Hour'] == 16)
+
+    # 6. Стоп-лосс (Прячем за откат на открытии Нью-Йорка)
+    # rolling(3) в 16:00 покроет свечи 14:00, 15:00 и 16:00
+    recent_highest = df['High'].rolling(3, min_periods=1).max()
+    recent_lowest = df['Low'].rolling(3, min_periods=1).min()
+
+    # 7. ЛОГИКА ВХОДА
+    # Long: Лондон шел вверх (Vector > 0), тренд сильный, время 16:00
+    long_cond = is_entry_time & strong_trend & (df['LDN_Vector'] > 0)
+    # Short: Лондон шел вниз (Vector < 0), тренд сильный, время 16:00
+    short_cond = is_entry_time & strong_trend & (df['LDN_Vector'] < 0)
+
+    # 8. Запись сигналов
+    df.loc[long_cond, 'NY_Cont_Long'] = 1
+    df.loc[long_cond, 'NY_Cont_Long_SL'] = recent_lowest
+
+    df.loc[short_cond, 'NY_Cont_Short'] = 1
+    df.loc[short_cond, 'NY_Cont_Short_SL'] = recent_highest
+
+    # Очистка
+    df.drop(columns=['Day_Key', 'LDN_Open_10', 'LDN_Close_15', 'LDN_Vector', 'LDN_Distance', 'Daily_Range', 'ATR_14D'], inplace=True, errors='ignore')
     return df
 
 def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int = 60) -> pd.DataFrame:

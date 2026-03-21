@@ -49,7 +49,7 @@ def process_pending_hypotheses():
 
         engine = LabEngine(
             data_file=processed_data_path,
-            start_date="2000-01-01",
+            start_date="2020-01-01",
             end_date="2026-02-27",
             timeframe=timeframe
         )
@@ -71,48 +71,27 @@ def process_pending_hypotheses():
         evaluator = SignalEvaluator(engine.df, hypothesis.triggers, hypothesis.name, target_col=target_metric)
         metrics = evaluator.calculate_metrics()
         
-        if not metrics or 'Optimal_Hold_Hours' not in metrics:
-            print(f"⚠️  Hypothesis '{hypothesis.name}' generated 0 trades.")
-            print("   (Check your logic for 'Geometry Traps' or impossible conditions)")
+        if not metrics or metrics.get('Status') == 'FAILED (Not enough data)':
+            print(f"⚠️  Hypothesis '{hypothesis.name}' generated 0 trades or insufficient data.")
             shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
             continue
 
-        h = metrics['Optimal_Hold_Hours']
-        win_rate = metrics.get(f'Hit_Ratio_{h}H', 0)
-        wins = metrics.get('Best_Win_Count', 0)
-        losses = metrics.get('Best_Loss_Count', 0)
-        t_stat = metrics.get(f'T_Stat_{h}H', 0.0)
-
         # ==========================================================
-        #  NEW: INJECT WIN/LOSS OUTCOMES INTO THE CSV LOG
+        #  ОБНОВЛЕННЫЙ АУДИТ: Берем данные напрямую из Trade Management
         # ==========================================================
-        fwd_col = f'Fwd_Ret_{h}'
         for i, trigger in enumerate(hypothesis.triggers):
-            dt = trigger['Datetime']
-            if dt in evaluator.df.index:
-                ret = evaluator.df.at[dt, fwd_col]
-                signal = evaluator.df.at[dt, 'Signal']
-                
-                if pd.isna(ret):
-                    # If the trade triggered on the very last day of data, 
-                    # there is no future data to check yet!
-                    outcome = "Pending"
-                else:
-                    # If signal matches the direction of the return, it's a win!
-                    outcome = "Win" if (signal * ret) > 0 else "Loss"
-            else:
-                outcome = "Unknown"
-                
-            # Remove old Status columns and add Outcome
-            hypothesis.daily_logs[i].pop('Status', None)
-            hypothesis.daily_logs[i].pop('Signal_Triggered', None)
+            outcome = trigger.get('Outcome', 'Pending')
+            
+            # Синхронизируем лог с результатами симуляции
             hypothesis.daily_logs[i]['Outcome'] = outcome
+            hypothesis.daily_logs[i]['Entry'] = round(trigger.get('Entry_Price', 0), 5)
+            hypothesis.daily_logs[i]['SL'] = round(trigger.get('SL_Price', 0), 5)
+            hypothesis.daily_logs[i]['TP'] = round(trigger.get('TP_Price', 0), 5)
 
-        # Save dynamic audit log named after the hypothesis
+        # Сохраняем аудит
         os.makedirs("output", exist_ok=True)
         safe_name = hypothesis.name.replace('/', '_').replace('\\', '_')
-        audit_filename = f"output/{safe_name}_audit_log.csv"
-        pd.DataFrame(hypothesis.daily_logs).to_csv(audit_filename, index=False)
+        pd.DataFrame(hypothesis.daily_logs).to_csv(f"output/{safe_name}_audit_log.csv", index=False)
         # ==========================================================
 
         print("=========================================")
@@ -123,22 +102,9 @@ def process_pending_hypotheses():
         print(f"  Expectancy (R)     : {metrics.get('Expectancy_R', 0)}")
         print(f"  T-Stat             : {metrics.get('T_Stat', 0)}")
         print("=========================================")
-        print(f"Status: {metrics['Status']}")
-
-        # Умная логика промоушена:
-        freq = metrics.get('Frequency', 0)
         
-        # 1. Стандартное правило больших чисел (T-Stat >= 2.0)
-        statistically_significant = (t_stat >= 2.0)
-        
-        # 2. Исключение для Черных Лебедей (Макро-шоки, мало сделок, но высокий винрейт)
-        macro_exemption = (freq > 0) and (freq < 15) and (win_rate >= 70.0)
-
-        if statistically_significant or macro_exemption:
-            if macro_exemption:
-                print("✅ PASSED (MACRO EXEMPTION): Promoted to PRODUCTION.")
-            else:
-                print("✅ PASSED (STATISTICAL EDGE): Promoted to PRODUCTION.")
+        if metrics['Status'] == 'PASSED':
+            print("✅ PASSED: Promoted to PRODUCTION.")
             shutil.move(file_path, os.path.join(PRODUCTION_DIR, filename))
         else:
             print("❌ FAILED: Moved to REVIEW.")

@@ -1,0 +1,27 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_048_NY_CONTINUATION",
+    "name": "NY Overlap Continuation (London Momentum)",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Инерция институциональных объемов. Если Лондон (10:00-15:00) формирует сильный тренд (>0.5 ATR), то Нью-Йорк после стартового отката обычно вливает объемы в этом же направлении. Вход в 16:00 (UA)."
+  },
+  "universe": {
+    "instruments": ["GBPUSD"],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": ["NY_Cont_Long", "NY_Cont_Short"]
+  },
+  "logic": {
+    "evaluation_metric": "Close",
+    "entry_rules": {
+      "long_trigger": [{ "feature": "NY_Cont_Long", "operator": ">", "value": 0 }],
+      "short_trigger": [{ "feature": "NY_Cont_Short", "operator": ">", "value": 0 }]
+    },
+    "exit_rules": {
+      "max_hold_time_hours": 999,
+      "description": "Автоматическое управление сделкой движком (Path-Dependent TP/SL)"
+    }
+  }
+}
