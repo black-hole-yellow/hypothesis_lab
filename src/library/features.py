@@ -32,8 +32,6 @@ def add_price_zscore(df: pd.DataFrame, lookback: int = 50) -> pd.DataFrame:
     df['Price_ZScore'] = (df['Close'] - rolling_mean) / rolling_std
     return df
 
-
-
 def add_williams_fractals(df: pd.DataFrame, timeframe: str, n: int = 2) -> pd.DataFrame:
     """
     Calculates N-period Williams Fractals.

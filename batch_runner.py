@@ -60,6 +60,10 @@ def process_pending_hypotheses():
             continue
 
         hypothesis = GenericJSONHypothesis(config=config)
+
+        required_features = config.get("data_dependencies", {}).get("required_features", [])
+        engine.apply_custom_features(required_features)
+
         engine.run_hypothesis(hypothesis)
 
         if len(hypothesis.triggers) == 0:
