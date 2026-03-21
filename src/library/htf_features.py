@@ -1776,7 +1776,7 @@ def add_judas_swing_context(df: pd.DataFrame, events: list = None) -> pd.DataFra
     df['Judas_Long'] = 0
     df['Judas_Long_SL'] = np.nan
     
-    # 1. Безопасные даты (Исключает проблему NaN)
+    # 1. Безопасные даты 
     df['Day'] = df.index.normalize() 
     asia_mask = (df.index.hour >= 0) & (df.index.hour < 7)
     
@@ -1786,31 +1786,23 @@ def add_judas_swing_context(df: pd.DataFrame, events: list = None) -> pd.DataFra
     df['Asia_High_Day'] = df['Day'].map(daily_asia_high)
     df['Asia_Low_Day'] = df['Day'].map(daily_asia_low)
     
-    # 2. Окно охоты (Открытие Лондона -> Лондонский Фиксинг)
+    # 2. Окно охоты
     is_hunting_zone = (df.index.hour >= 8) & (df.index.hour <= 16)
     
-    # 3. ПОЛНАЯ ЛОГИКА SWEEP (Пинбар + Многосвечной разворот)
-    
-    # --- ШОРТ ---
-    # Точка А: Прошлая свеча закрылась выше Хая Азии, текущая нырнула ниже
+    # 3. ЛОГИКА SWEEP (Пинбар + Возврат)
     just_returned_high = (df['Close'] < df['Asia_High_Day']) & (df['Close'].shift(1) >= df['Asia_High_Day'])
-    # Точка Б: Классический пинбар
     pinbar_high = (df['High'] > df['Asia_High_Day']) & (df['Close'] < df['Asia_High_Day']) & (df['Open'] <= df['Asia_High_Day'])
-    
-    # Сигнал (обязательно медвежья свеча для подтверждения)
     sweep_high = (just_returned_high | pinbar_high) & (df['Close'] < df['Open'])
     
-    # --- ЛОНГ ---
     just_returned_low = (df['Close'] > df['Asia_Low_Day']) & (df['Close'].shift(1) <= df['Asia_Low_Day'])
     pinbar_low = (df['Low'] < df['Asia_Low_Day']) & (df['Close'] > df['Asia_Low_Day']) & (df['Open'] >= df['Asia_Low_Day'])
-    
     sweep_low = (just_returned_low | pinbar_low) & (df['Close'] > df['Open'])
     
-    # 4. ДИНАМИЧЕСКИЙ СТОП-ЛОСС (Экстремум за 3 часа)
+    # 4. ДИНАМИЧЕСКИЙ СТОП-ЛОСС
     recent_highest = df['High'].rolling(3, min_periods=1).max()
     recent_lowest = df['Low'].rolling(3, min_periods=1).min()
     
-    # 5. ЗАПИСЬ СИГНАЛОВ
+    # 5. СИГНАЛЫ
     short_condition = is_hunting_zone & sweep_high
     df.loc[short_condition, 'Judas_Short'] = 1
     df.loc[short_condition, 'Judas_Short_SL'] = recent_highest
@@ -1819,7 +1811,6 @@ def add_judas_swing_context(df: pd.DataFrame, events: list = None) -> pd.DataFra
     df.loc[long_condition, 'Judas_Long'] = 1
     df.loc[long_condition, 'Judas_Long_SL'] = recent_lowest
     
-    # Чистка
     df.drop(columns=['Day', 'Asia_High_Day', 'Asia_Low_Day'], inplace=True, errors='ignore')
     return df
 

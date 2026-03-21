@@ -156,8 +156,10 @@ class LabEngine:
                 high = row['High']
                 low = row['Low']
                 
-                if trade['Direction'] == 'Long':
-                    # Консервативный тест: всегда сначала проверяем Стоп-лосс
+                # Нормализуем регистр (long -> Long)
+                direction = str(trade.get('Direction', '')).capitalize()
+                
+                if direction == 'Long':
                     if low <= trade['SL_Price']:
                         trade['Outcome'] = 'Loss'
                         trade['Status'] = 'Closed'
@@ -169,7 +171,7 @@ class LabEngine:
                     else:
                         still_active.append(trade)
                         
-                elif trade['Direction'] == 'Short':
+                elif direction == 'Short':
                     if high >= trade['SL_Price']:
                         trade['Outcome'] = 'Loss'
                         trade['Status'] = 'Closed'
@@ -180,12 +182,14 @@ class LabEngine:
                         trade['Exit_Time'] = index
                     else:
                         still_active.append(trade)
+                else:
+                    # Защита от потери сделок с неизвестным направлением
+                    still_active.append(trade)
 
-            # Обновляем список активных сделок
             active_trades = still_active
 
             # ==========================================
-            # 2. EVALUATE NEW SIGNALS (JSON Rule Checker)
+            # 2. EVALUATE NEW SIGNALS 
             # ==========================================
             day_date = index.date()
             if day_date != current_day:
@@ -200,7 +204,9 @@ class LabEngine:
             if len(hypothesis.triggers) > triggers_before:
                 new_trade = hypothesis.triggers[-1]
                 trend_prob = row.get('HTF_Bullish_Prob', 50.0)
-                direction = new_trade.get('Direction', '') 
+                
+                # Нормализуем регистр и здесь!
+                direction = str(new_trade.get('Direction', '')).capitalize()
                 
                 is_shock = (
                     row.get('Geo_Shock_Short', 0) == 1 or 
@@ -256,45 +262,39 @@ class LabEngine:
                     
                     if kill_long or kill_short:
                         hypothesis.triggers.pop()
-                        hypothesis.daily_logs.pop()
+                        if hasattr(hypothesis, 'daily_logs') and len(hypothesis.daily_logs) > 0:
+                            hypothesis.daily_logs.pop()
                         continue
                 
                 # --- ИНИЦИАЛИЗАЦИЯ 2RR СДЕЛКИ ---
                 entry_price = row['Close']
                 sl_price = None
                 
-                # Магия поиска SL: Движок сканирует колонки, оканчивающиеся на '_SL'
                 for col in self.df.columns:
                     if col.endswith('_SL') and pd.notna(row.get(col)):
                         base_feature = col.replace('_SL', '')
-                        # Если это именно та фича, которая дала сигнал (== 1)
                         if row.get(base_feature, 0) == 1:
                             sl_price = row[col]
                             break
                 
-                # Если вы забыли прописать SL в htf_features.py, движок не упадет, а поставит 1 ATR
                 if sl_price is None or pd.isna(sl_price):
                     atr = row.get('ATR_14D', 0.0020)
-                    if direction == 'Long':
-                        sl_price = entry_price - atr
-                    else:
-                        sl_price = entry_price + atr
+                    sl_price = (entry_price - atr) if direction == 'Long' else (entry_price + atr)
                 
                 # Расчет Risk и жесткого Take Profit (1:2)
                 if direction == 'Long':
                     risk = entry_price - sl_price
-                    if risk <= 0: risk = row.get('ATR_14D', 0.0020) # Защита от нулевого риска
+                    if risk <= 0: risk = row.get('ATR_14D', 0.0020)
                     tp_price = entry_price + (2 * risk)
                 else: # Short
                     risk = sl_price - entry_price
                     if risk <= 0: risk = row.get('ATR_14D', 0.0020)
                     tp_price = entry_price - (2 * risk)
                 
-                # Записываем данные по сделке напрямую в словарь триггера
                 new_trade['Entry_Price'] = entry_price
                 new_trade['SL_Price'] = sl_price
                 new_trade['TP_Price'] = tp_price
                 new_trade['Status'] = 'Active'
-                new_trade['Outcome'] = 'Pending' # Будет заменено на Win или Loss
+                new_trade['Outcome'] = 'Pending'
                 
                 active_trades.append(new_trade)
