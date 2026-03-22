@@ -47,6 +47,11 @@ FEATURE_REGISTRY = {
     "First_LDN_PDH_Short": {"func": add_london_pdh_pdl_sweep_context, "type": BOOL},
     "LDN_Protected_AL_Long": {"func": add_asia_fvg_protection_context, "type": BOOL},
     "LDN_Protected_AH_Short": {"func": add_asia_fvg_protection_context, "type": BOOL},
+    "NY_Opened_In_Asia_Range": {"type": "categorical", "func": add_ny_expansion_context},
+    "NY_Sweep_Asia_High": {"type": "binary", "func": add_ny_expansion_context},
+    "NY_Sweep_Asia_Low": {"type": "binary", "func": add_ny_expansion_context},
+    "Swept_AH_Into_FVG": {"type": "binary", "func": add_asian_sweep_context},
+    "Swept_AL_Into_FVG": {"type": "binary", "func": add_asian_sweep_context},
 
     # --- MACRO & NEWS (macro_features.py) ---
     # Исправлена асимметрия: добавлены недостающие стороны

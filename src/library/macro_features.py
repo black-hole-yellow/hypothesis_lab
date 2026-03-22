@@ -46,13 +46,14 @@ def add_nfp_divergence_context(df: pd.DataFrame, events: list = None) -> pd.Data
     nfp_dates = _get_event_dates(events, ['nfp', 'non farm', 'payrolls', 'employment'])
     if not nfp_dates: return df
 
-    is_nfp_day = np.isin(df.index.date, nfp_dates)
-    is_active_window = (df['UA_Hour'] >= 15) & (df['UA_Hour'] <= 18)
+    date_strs = [str(d) for d in nfp_dates]
+    is_nfp_day = df.index.strftime('%Y-%m-%d').isin(date_strs)
+    is_active = (df['UA_Hour'] >= 15) & (df['UA_Hour'] <= 18)
     
     bullish_candle = df['Close'] > df['Open']
     bearish_candle = df['Close'] < df['Open']
 
-    valid_mask = is_nfp_day & is_active_window
+    valid_mask = is_nfp_day & is_active
     
     df.loc[valid_mask & bearish_candle, 'NFP_Fade_Long'] = 1
     df.loc[valid_mask & bullish_candle, 'NFP_Fade_Short'] = 1
@@ -68,7 +69,8 @@ def add_nfp_revision_trap_context(df: pd.DataFrame, events: list = None) -> pd.D
     nfp_dates = _get_event_dates(events, ['nfp', 'non farm'])
     if not nfp_dates: return df
 
-    is_nfp_day = np.isin(df.index.date, nfp_dates)
+    date_strs = [str(d) for d in nfp_dates]
+    is_nfp_day = df.index.strftime('%Y-%m-%d').isin(date_strs)
     is_active = (df['UA_Hour'] >= 15) & (df['UA_Hour'] <= 18)
     
     df.loc[is_nfp_day & is_active, 'NFP_Revision_Trap'] = 1
@@ -85,7 +87,8 @@ def add_uk_cpi_momentum_context(df: pd.DataFrame, events: list = None) -> pd.Dat
     cpi_dates = _get_event_dates(events, ['uk cpi', 'british cpi'])
     if not cpi_dates: return df
 
-    is_cpi_day = np.isin(df.index.date, cpi_dates)
+    date_strs = [str(d) for d in cpi_dates]
+    is_cpi_day = df.index.strftime('%Y-%m-%d').isin(date_strs)
     is_active = (df['UA_Hour'] >= 9) & (df['UA_Hour'] <= 12)
     
     df.loc[is_cpi_day & is_active & (df['Close'] > df['Open']), 'CPI_Momentum_Long'] = 1
@@ -100,7 +103,8 @@ def add_uk_us_cpi_divergence_context(df: pd.DataFrame, events: list = None) -> p
     cpi_dates = _get_event_dates(events, ['cpi'])
     
     if cpi_dates:
-        is_day = np.isin(df.index.date, cpi_dates)
+        date_strs = [str(d) for d in cpi_dates]
+        is_day = df.index.strftime('%Y-%m-%d').isin(date_strs)
         is_active = (df['UA_Hour'] >= 14) & (df['UA_Hour'] <= 18)
         df.loc[is_day & is_active & (df['Close'] > df['Open']), 'Macro_CPI_Div_Long'] = 1
         df.loc[is_day & is_active & (df['Close'] < df['Open']), 'Macro_CPI_Div_Short'] = 1
@@ -111,7 +115,8 @@ def add_cpi_match_mean_reversion_context(df: pd.DataFrame, events: list = None) 
     df['CPI_Match_Reversion'] = 0
     cpi_dates = _get_event_dates(events, ['cpi'])
     if cpi_dates:
-        is_day = np.isin(df.index.date, cpi_dates)
+        date_strs = [str(d) for d in cpi_dates]
+        is_day = df.index.strftime('%Y-%m-%d').isin(date_strs)
         df.loc[is_day & (df['UA_Hour'] == 16), 'CPI_Match_Reversion'] = 1
     return df
 
@@ -125,7 +130,8 @@ def add_fomc_sell_the_news_context(df: pd.DataFrame, events: list = None) -> pd.
     
     fomc_dates = _get_event_dates(events, ['fomc', 'fed', 'interest rate'])
     if fomc_dates:
-        is_fomc_day = np.isin(df.index.date, fomc_dates)
+        date_strs = [str(d) for d in fomc_dates]
+        is_fomc_day = df.index.strftime('%Y-%m-%d').isin(date_strs)
         is_active = (df['UA_Hour'] >= 21) & (df['UA_Hour'] <= 23)
         df.loc[is_fomc_day & is_active & (df['Close'] < df['Open']), 'FOMC_Sell_News_Long'] = 1
         df.loc[is_fomc_day & is_active & (df['Close'] > df['Open']), 'FOMC_Sell_News_Short'] = 1
@@ -136,7 +142,9 @@ def add_boe_hawkish_context(df: pd.DataFrame, events: list = None) -> pd.DataFra
     df['BoE_Hawkish'] = 0
     boe_dates = _get_event_dates(events, ['boe', 'bank of england'])
     if boe_dates:
-        df.loc[np.isin(df.index.date, boe_dates) & (df['UA_Hour'] >= 14) & (df['UA_Hour'] <= 16), 'BoE_Hawkish'] = 1
+        date_strs = [str(d) for d in boe_dates]
+        is_boe_day = df.index.strftime('%Y-%m-%d').isin(date_strs)
+        df.loc[is_boe_day & (df['UA_Hour'] >= 14) & (df['UA_Hour'] <= 16), 'BoE_Hawkish'] = 1
     return df
 
 def add_cb_divergence_state_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
@@ -145,7 +153,9 @@ def add_cb_divergence_state_context(df: pd.DataFrame, events: list = None) -> pd
     df['CB_Divergence_Short'] = 0
     dates = _get_event_dates(events, ['rate', 'policy'])
     if dates:
-        is_active = np.isin(df.index.date, dates) & (df['UA_Hour'] >= 14) & (df['UA_Hour'] <= 18)
+        date_strs = [str(d) for d in dates]
+        is_day = df.index.strftime('%Y-%m-%d').isin(date_strs)
+        is_active = is_day & (df['UA_Hour'] >= 14) & (df['UA_Hour'] <= 18)
         df.loc[is_active & (df['Close'] > df['Open']), 'CB_Divergence_Long'] = 1
         df.loc[is_active & (df['Close'] < df['Open']), 'CB_Divergence_Short'] = 1
     return df
@@ -156,7 +166,9 @@ def add_boe_tone_shift_proxy_context(df: pd.DataFrame, events: list = None) -> p
     df['BoE_Tone_Shift_Short'] = 0
     dates = _get_event_dates(events, ['boe', 'bailey'])
     if dates:
-        is_active = np.isin(df.index.date, dates) & (df['UA_Hour'] >= 14) & (df['UA_Hour'] <= 17)
+        date_strs = [str(d) for d in dates]
+        is_day = df.index.strftime('%Y-%m-%d').isin(date_strs)
+        is_active = is_day & (df['UA_Hour'] >= 14) & (df['UA_Hour'] <= 17)
         df.loc[is_active & (df['Close'] > df['Open']), 'BoE_Tone_Shift_Long'] = 1
         df.loc[is_active & (df['Close'] < df['Open']), 'BoE_Tone_Shift_Short'] = 1
     return df
@@ -170,7 +182,9 @@ def add_retail_sales_divergence_context(df: pd.DataFrame, events: list = None) -
     df['Retail_Div_Short'] = 0
     dates = _get_event_dates(events, ['retail'])
     if dates:
-        is_active = np.isin(df.index.date, dates) & (df['UA_Hour'] >= 15) & (df['UA_Hour'] <= 18)
+        date_strs = [str(d) for d in dates]
+        is_day = df.index.strftime('%Y-%m-%d').isin(date_strs)
+        is_active = is_day & (df['UA_Hour'] >= 15) & (df['UA_Hour'] <= 18)
         df.loc[is_active & (df['Close'] > df['Open']), 'Retail_Div_Long'] = 1
         df.loc[is_active & (df['Close'] < df['Open']), 'Retail_Div_Short'] = 1
     return df
@@ -181,7 +195,9 @@ def add_unemp_fakeout_context(df: pd.DataFrame, events: list = None) -> pd.DataF
     df['Unemp_Fakeout_Short'] = 0
     dates = _get_event_dates(events, ['unemployment', 'jobless'])
     if dates:
-        is_active = np.isin(df.index.date, dates) & (df['UA_Hour'] >= 15) & (df['UA_Hour'] <= 17)
+        date_strs = [str(d) for d in dates]
+        is_day = df.index.strftime('%Y-%m-%d').isin(date_strs)
+        is_active = is_day & (df['UA_Hour'] >= 15) & (df['UA_Hour'] <= 17)
         df.loc[is_active & (df['Close'] < df['Open']), 'Unemp_Fakeout_Long'] = 1
         df.loc[is_active & (df['Close'] > df['Open']), 'Unemp_Fakeout_Short'] = 1
     return df
@@ -208,7 +224,8 @@ def add_election_volatility_context(df: pd.DataFrame, events: list = None) -> pd
     df['Election_Vol_Crush_Short'] = 0
     dates = _get_event_dates(events, ['election', 'vote'])
     if dates:
-        is_active = np.isin(df.index.date, dates)
+        date_strs = [str(d) for d in dates]
+        is_active = df.index.strftime('%Y-%m-%d').isin(date_strs)
         df.loc[is_active & (df['Close'] > df['Open']), 'Election_Vol_Crush_Long'] = 1
         df.loc[is_active & (df['Close'] < df['Open']), 'Election_Vol_Crush_Short'] = 1
     return df
@@ -219,7 +236,8 @@ def add_uk_political_shock_context(df: pd.DataFrame, events: list = None) -> pd.
     df['UK_Shock_Cont_Short'] = 0
     dates = _get_event_dates(events, ['parliament', 'pm', 'minister'])
     if dates:
-        is_active = np.isin(df.index.date, dates)
+        date_strs = [str(d) for d in dates]
+        is_active = df.index.strftime('%Y-%m-%d').isin(date_strs)
         df.loc[is_active & (df['Close'] > df['Open']), 'UK_Shock_Cont_Long'] = 1
         df.loc[is_active & (df['Close'] < df['Open']), 'UK_Shock_Cont_Short'] = 1
     return df
@@ -230,7 +248,8 @@ def add_sovereign_risk_proxy_context(df: pd.DataFrame, events: list = None) -> p
     df['Sovereign_Risk_Short'] = 0
     dates = _get_event_dates(events, ['gilt', 'bond', 'debt'])
     if dates:
-        is_active = np.isin(df.index.date, dates)
+        date_strs = [str(d) for d in dates]
+        is_active = df.index.strftime('%Y-%m-%d').isin(date_strs)
         df.loc[is_active & (df['Close'] > df['Open']), 'Sovereign_Risk_Long'] = 1
         df.loc[is_active & (df['Close'] < df['Open']), 'Sovereign_Risk_Short'] = 1
     return df
@@ -242,7 +261,9 @@ def add_macro_shock_inside_bar_context(df: pd.DataFrame, events: list = None) ->
     
     dates = _get_event_dates(events, ['cpi', 'nfp', 'fomc', 'boe'])
     if dates:
-        is_active = np.isin(df.index.date, dates) & (df['UA_Hour'] >= 14) & (df['UA_Hour'] <= 18)
+        date_strs = [str(d) for d in dates]
+        is_day = df.index.strftime('%Y-%m-%d').isin(date_strs)
+        is_active = is_day & (df['UA_Hour'] >= 14) & (df['UA_Hour'] <= 18)
         inside_bar = (df['High'] < df['High'].shift(1)) & (df['Low'] > df['Low'].shift(1))
         df.loc[is_active & inside_bar, 'Macro_Inside_Bar_Long'] = 1
         df.loc[is_active & inside_bar, 'Macro_Inside_Bar_Short'] = 1

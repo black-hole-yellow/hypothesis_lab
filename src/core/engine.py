@@ -97,6 +97,46 @@ class LabEngine:
         active_trades, trades_opened_today, losses_today = [], 0, 0
         hypothesis.feature_types = {k: v["type"] for k, v in FEATURE_REGISTRY.items()}
 
+        # ==========================================
+        # 🔍 INJECTED DIAGNOSTIC PRE-CHECK
+        # ==========================================
+        # Try to get the name safely from metadata if available
+        hypo_name = getattr(hypothesis, 'name', 'Unknown')
+        if hasattr(hypothesis, 'config') and 'metadata' in hypothesis.config:
+            hypo_name = hypothesis.config['metadata'].get('name', hypo_name)
+            
+        print(f"\n🔍 [DEBUG] Analyzing Signal Funnel for: {hypo_name}")
+        try:
+            # Extract logic safely from the hypothesis object
+            logic = getattr(hypothesis, 'logic', None)
+            if not logic and hasattr(hypothesis, 'config'):
+                logic = hypothesis.config.get('logic', {})
+            
+            if logic:
+                all_features = set()
+                for rule in logic.get('filters', []): all_features.add(rule.get('feature'))
+                for rule in logic.get('entry_rules', {}).get('long_trigger', []): all_features.add(rule.get('feature'))
+                for rule in logic.get('entry_rules', {}).get('short_trigger', []): all_features.add(rule.get('feature'))
+                
+                all_features.discard(None)  # Remove None if exists
+                
+                for f in all_features:
+                    if f in self.df.columns:
+                        # Count signals for binary/boolean columns (1/0)
+                        if self.df[f].nunique() <= 2 and pd.api.types.is_numeric_dtype(self.df[f]):
+                            count_ones = (self.df[f] == 1).sum()
+                            if count_ones == 0:
+                                print(f"   🔴 FATAL: '{f}' generated 0 signals in the entire dataset!")
+                            else:
+                                print(f"   🟢 Feature '{f}': {count_ones} raw triggers found.")
+                        else:
+                            print(f"   🔵 Feature '{f}': Present (Continuous/Categorical).")
+                    else:
+                        print(f"   ❌ CRITICAL: Feature '{f}' is MISSING from the DataFrame!")
+        except Exception as e:
+            print(f"   ⚠️ Debugger skipped: {e}")
+        # ==========================================
+
         # --- БЕЗОПАСНОЕ ИЗВЛЕЧЕНИЕ ПРАВИЛ (Защита от None) ---
         exec_rules = getattr(hypothesis, 'execution_rules', {})
         mode = exec_rules.get('mode', 'risk_reward')
@@ -104,10 +144,10 @@ class LabEngine:
         sl_atr_mult = exec_rules.get('sl_atr_multiplier', 1.0)
         
         max_hold_bars = exec_rules.get('max_hold_bars')
-        if max_hold_bars is None: max_hold_bars = 999 # Защита от краша!
+        if max_hold_bars is None: max_hold_bars = 999 
         
         max_trades = exec_rules.get('max_trades_per_day')
-        if max_trades is None: max_trades = 999 # Защита от краша!
+        if max_trades is None: max_trades = 999 
         
         allow_resweep = exec_rules.get('allow_resweep', False)
 
@@ -126,7 +166,6 @@ class LabEngine:
                 direction = str(trade.get('Direction', '')).capitalize()
                 
                 if mode == 'time_based':
-                    # --- РЕЖИМ 1: Выход по Времени ---
                     trade['Hold_Bars'] = trade.get('Hold_Bars', 0) + 1
 
                     if trade['Hold_Bars'] >= max_hold_bars:
@@ -141,7 +180,6 @@ class LabEngine:
                         still_active.append(trade)
                         
                 elif mode == 'risk_reward':
-                    # --- РЕЖИМ 2: Выход по Уровням (SL/TP) ---
                     high, low = row['High'], row['Low']
                     
                     if direction == 'Long':
@@ -191,7 +229,6 @@ class LabEngine:
                 entry_price = row['Close']
                 
                 if mode == 'time_based':
-                    # --- ИНИЦИАЛИЗАЦИЯ: Режим удержания по времени ---
                     new_trade.update({
                         'Entry_Price': entry_price,
                         'SL_Price': 0, 
@@ -202,7 +239,6 @@ class LabEngine:
                     })
                 
                 elif mode == 'risk_reward':
-                    # --- ИНИЦИАЛИЗАЦИЯ: Режим снайперских уровней ---
                     sl_price = None
                     for col in self.df.columns:
                         if col.endswith('_SL') and pd.notna(row.get(col)) and row.get(col.replace('_SL',''), 0) == 1:
