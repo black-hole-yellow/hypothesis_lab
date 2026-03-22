@@ -591,24 +591,20 @@ def add_htf_trend_probability(df: pd.DataFrame, events: list = None, htf: str = 
 def add_structure_flip_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
     df = df.copy()
     
-    # Basic swing detection (3-bar fractal)
+    # Detect 3-bar swings
     df['Swing_High'] = (df['High'] > df['High'].shift(1)) & (df['High'] > df['High'].shift(-1))
     df['Swing_Low'] = (df['Low'] < df['Low'].shift(1)) & (df['Low'] < df['Low'].shift(-1))
     
-    # Forward fill the last known swing levels
-    df['Last_Swing_High_Price'] = df['High'].where(df['Swing_High']).ffill()
-    df['Last_Swing_Low_Price'] = df['Low'].where(df['Swing_Low']).ffill()
+    df['Last_Swing_High'] = df['High'].where(df['Swing_High']).ffill()
+    df['Last_Swing_Low'] = df['Low'].where(df['Swing_Low']).ffill()
     
-    # A Bullish Flip is when Close breaks above the last known Swing High
-    bullish_break = (df['Close'] > df['Last_Swing_High_Price'].shift(1))
-    # A Bearish Flip is when Close breaks below the last known Swing Low
-    bearish_break = (df['Close'] < df['Last_Swing_Low_Price'].shift(1))
+    bullish_break = (df['Close'] > df['Last_Swing_High'].shift(1))
+    bearish_break = (df['Close'] < df['Last_Swing_Low'].shift(1))
     
-    # Rolling window to keep the flip "active" for the JSON condition
     df['1h_Bullish_Flip'] = bullish_break.rolling(3, min_periods=1).max().fillna(0).astype(int)
     df['1h_Bearish_Flip'] = bearish_break.rolling(3, min_periods=1).max().fillna(0).astype(int)
     
-    df.drop(columns=['Swing_High', 'Swing_Low', 'Last_Swing_High_Price', 'Last_Swing_Low_Price'], inplace=True, errors='ignore')
+    df.drop(columns=['Swing_High', 'Swing_Low', 'Last_Swing_High', 'Last_Swing_Low'], inplace=True, errors='ignore')
     return df
 
 def add_asia_fvg_protection_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
@@ -650,4 +646,30 @@ def add_asia_fvg_protection_context(df: pd.DataFrame, events: list = None) -> pd
     df['LDN_Protected_AH_Short'] = df['LDN_Protected_AH_Short'].fillna(False).astype(int)
 
     df.drop(columns=['Day_Key'], inplace=True, errors='ignore')
+    return df
+
+def add_asian_sweep_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    df = df.copy()
+    
+    # 1. Ensure Asia boundaries exist
+    if 'Asia_High' not in df.columns:
+        df['Date_Key_Tmp'] = df.index.date
+        is_asia = (df['UA_Hour'] >= 0) & (df['UA_Hour'] <= 8)
+        asia_stats = df[is_asia].groupby('Date_Key_Tmp').agg({'High': 'max', 'Low': 'min'})
+        df['Asia_High'] = df['Date_Key_Tmp'].map(asia_stats['High'])
+        df['Asia_Low'] = df['Date_Key_Tmp'].map(asia_stats['Low'])
+        df.drop(columns=['Date_Key_Tmp'], inplace=True)
+    
+    # 2. Setup the missing columns with defaults
+    df['Swept_AL_Into_FVG'] = 0
+    df['Swept_AH_Into_FVG'] = 0
+
+    # 3. Calculate sweeps if HTF FVG exists
+    if 'FVG_4h_Type' in df.columns:
+        sweep_al = (df['FVG_4h_Type'] == 'BULL') & (df['Low'] < df['Asia_Low']) & (df['Low'] <= df['FVG_4h_Top'])
+        sweep_ah = (df['FVG_4h_Type'] == 'BEAR') & (df['High'] > df['Asia_High']) & (df['High'] >= df['FVG_4h_Bottom'])
+        
+        df['Swept_AL_Into_FVG'] = sweep_al.rolling(3, min_periods=1).max().fillna(0).astype(int)
+        df['Swept_AH_Into_FVG'] = sweep_ah.rolling(3, min_periods=1).max().fillna(0).astype(int)
+        
     return df

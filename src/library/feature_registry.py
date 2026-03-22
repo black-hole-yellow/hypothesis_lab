@@ -50,10 +50,6 @@ FEATURE_REGISTRY = {
     "NY_Opened_In_Asia_Range": {"type": "categorical", "func": add_ny_expansion_context},
     "NY_Sweep_Asia_High": {"type": "binary", "func": add_ny_expansion_context},
     "NY_Sweep_Asia_Low": {"type": "binary", "func": add_ny_expansion_context},
-    "Swept_AH_Into_FVG": {"type": "binary", "func": add_asian_sweep_context},
-    "1h_Bullish_Flip": {"func": add_structure_flip_context, "type": BOOL},
-    "1h_Bearish_Flip": {"func": add_structure_flip_context, "type": BOOL},
-    "Swept_AL_Into_FVG": {"func": add_asian_sweep_context, "type": BOOL},
     
     
 
@@ -91,11 +87,11 @@ FEATURE_REGISTRY = {
     "HTF_Trend_Prob": {"func": add_htf_trend_probability, "type": FLOAT},
     "First_1W_Rej_Long": {"func": add_1w_level_rejection_context, "type": BOOL},
     "First_1W_Rej_Short": {"func": add_1w_level_rejection_context, "type": BOOL},
-    "Swept_AL_Into_FVG": {"func": add_asia_fvg_protection_context, "type": BOOL},
-    "Swept_AH_Into_FVG": {"func": add_asia_fvg_protection_context, "type": BOOL},
-    "1h_Bullish_Flip": {"func": add_htf_trend_probability, "type": BOOL},
-    "1h_Bearish_Flip": {"func": add_htf_trend_probability, "type": BOOL},
 
+    "Swept_AL_Into_FVG": {"func": add_asian_sweep_context, "type": BOOL},
+    "Swept_AH_Into_FVG": {"func": add_asian_sweep_context, "type": BOOL},
+    "1h_Bullish_Flip": {"func": add_structure_flip_context, "type": BOOL},
+    "1h_Bearish_Flip": {"func": add_structure_flip_context, "type": BOOL},
 
     "Gap_Down_Fade_Long": {"func": add_weekend_gap_context, "type": BOOL},
     "Gap_Up_Fade_Short": {"func": add_weekend_gap_context, "type": BOOL},

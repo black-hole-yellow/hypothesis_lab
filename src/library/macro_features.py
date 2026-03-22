@@ -5,26 +5,31 @@ import numpy as np
 # ХЕЛПЕР: УМНЫЙ ПОИСК ДАТ (Игнорируем минуты)
 # ==========================================
 def _get_event_dates(events, keywords: list) -> list:
-    """Универсальный парсер для словаря категорий macro_events.json."""
     if events is None: return []
     
-    # Expand keywords for robust proxy matching
-    if 'unemployment' in keywords or 'jobless' in keywords:
-        keywords.append('unemp')
-    if 'gilt' in keywords or 'bond' in keywords:
-        keywords.extend(['shock', 'geopolitical'])
-    if 'rate' in keywords or 'policy' in keywords:
-        keywords.extend(['fomc', 'boe', 'hike', 'cut'])
+    # Расширяем ключевые слова для надежности
+    keywords_lower = [k.lower() for k in keywords]
+    if any(k in keywords_lower for k in ['unemployment', 'jobless']):
+        keywords_lower.append('unemp')
+    if any(k in keywords_lower for k in ['gilt', 'bond', 'debt']):
+        keywords_lower.extend(['shock', 'geopolitical', 'political'])
+    if any(k in keywords_lower for k in ['rate', 'policy']):
+        keywords_lower.extend(['fomc', 'boe', 'hike', 'cut'])
 
-    # Safely unpack DataFrames OR Dictionaries
+    events_list = []
+    
+    # БЕЗОПАСНАЯ РАСПАКОВКА PANDAS DATAFRAME
     if isinstance(events, pd.DataFrame):
-        events_list = events.to_dict(orient='records')
+        for col in events.columns:
+            for item in events[col].dropna():
+                if isinstance(item, dict):
+                    item['Category'] = col
+                    events_list.append(item)
     elif isinstance(events, dict):
-        events_list = []
-        for category, evt_list in events.items():
+        for cat, evt_list in events.items():
             for e in evt_list:
                 if isinstance(e, dict):
-                    e['Category'] = category
+                    e['Category'] = cat
                     events_list.append(e)
     else:
         events_list = events
@@ -36,8 +41,8 @@ def _get_event_dates(events, keywords: list) -> list:
         name_lower = str(e.get('name', e.get('Event', ''))).lower()
         category_lower = str(e.get('Category', '')).lower().replace('_', ' ')
         
-        # Match keywords against both the specific event name AND the parent category
-        if any(k.lower() in name_lower or k.lower() in category_lower for k in keywords):
+        # Ищем ключевое слово как в имени, так и в категории
+        if any(k in name_lower or k in category_lower for k in keywords_lower):
             dt_raw = e.get('start_date', e.get('Date', ''))
             if dt_raw:
                 date_part = str(dt_raw).split('T')[0].split(' ')[0]
