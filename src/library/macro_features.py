@@ -4,22 +4,31 @@ import numpy as np
 # ==========================================
 # ХЕЛПЕР: УМНЫЙ ПОИСК ДАТ (Игнорируем минуты)
 # ==========================================
-def _get_event_dates(events: list, keywords: list) -> list:
-    """Умный извлекатель дат, который понимает любые форматы JSON-календарей."""
+def _get_event_dates(events, keywords: list) -> list:
+    """Универсальный парсер для словаря категорий macro_events.json."""
     if not events: return []
+    all_events = []
+    
+    # Если events - это словарь (как в вашем файле), собираем всё в один список
+    if isinstance(events, dict):
+        for category, event_list in events.items():
+            all_events.extend(event_list)
+    else:
+        all_events = events
+
     dates = set()
-    for e in events:
-        # Ищем название события в любых возможных ключах
-        name = str(e.get('Event_Name', e.get('event', e.get('title', e.get('Name', ''))))).lower()
+    for e in all_events:
+        # Проверяем и имя события, и категорию (вдруг ключевое слово там)
+        name = str(e.get('name', e.get('Event', ''))).lower()
         
         if any(k.lower() in name for k in keywords):
-            # Ищем дату в любых возможных ключах
-            dt_raw = e.get('Datetime', e.get('date', e.get('time', e.get('Date', ''))))
+            # Используем start_date (ключ из вашего JSON)
+            dt_raw = e.get('start_date', e.get('Date', ''))
             if dt_raw:
-                # Отрезаем всё после 'T' (2023-11-03T15:30) или пробела (2023-11-03 15:30)
-                date_str = str(dt_raw).split('T')[0].split(' ')[0]
+                # Отрезаем время: '2023-11-03T15:30:00Z' -> '2023-11-03'
+                date_part = str(dt_raw).split('T')[0].split(' ')[0]
                 try:
-                    dates.add(pd.to_datetime(date_str).date())
+                    dates.add(pd.to_datetime(date_part).date())
                 except:
                     pass
     return list(dates)

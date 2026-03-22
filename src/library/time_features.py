@@ -61,6 +61,17 @@ def add_asian_sweep_context(df: pd.DataFrame, events=None, max_dist_pips: int = 
     Calculates Asian Session Extremes and detects sweeps into 4H FVGs.
     Requires calculate_multi_tf_fvgs to be run first.
     """
+
+    if 'Asia_High' not in df.columns:
+        df['Date_Key_Tmp'] = df.index.date
+        # Азия 00:00 - 08:00 (Киев)
+        is_asia = (df['UA_Hour'] >= 0) & (df['UA_Hour'] <= 8)
+        asia_stats = df[is_asia].groupby('Date_Key_Tmp').agg({'High': 'max', 'Low': 'min'})
+        df['Asia_High'] = df['Date_Key_Tmp'].map(asia_stats['High'])
+        df['Asia_Low'] = df['Date_Key_Tmp'].map(asia_stats['Low'])
+        df.drop(columns=['Date_Key_Tmp'], inplace=True)
+    # ---------------------------------------------------------
+
     PIP = 0.0001
     tolerance = max_dist_pips * PIP
     
@@ -73,7 +84,8 @@ def add_asian_sweep_context(df: pd.DataFrame, events=None, max_dist_pips: int = 
     asia_stats.rename(columns={'High': 'Asia_High', 'Low': 'Asia_Low'}, inplace=True)
     
     # 3. Merge back to the main dataframe
-    df = df.join(asia_stats, on='Date_Key')
+    df['Asia_High'] = df['Date_Key'].map(asia_stats['Asia_High'])
+    df['Asia_Low'] = df['Date_Key'].map(asia_stats['Asia_Low'])
     
     # 4. Define the Setup: FVG must be "immediately outside" the Asian extreme
     # Bullish: 4H FVG Top is just below the Asian Low
@@ -372,6 +384,18 @@ def add_ny_expansion_context(df: pd.DataFrame,events: list = None) -> pd.DataFra
     Identifies if the NY session opened inside the Asian Range.
     Requires add_asian_sweep_context to be run first.
     """
+
+    # --- ОБЯЗАТЕЛЬНО: Считаем Азию прямо здесь, если её нет ---
+    if 'Asia_High' not in df.columns:
+        df['Date_Key_Tmp'] = df.index.date
+        is_asia = (df['UA_Hour'] >= 0) & (df['UA_Hour'] <= 8)
+        asia_stats = df[is_asia].groupby('Date_Key_Tmp').agg({'High': 'max', 'Low': 'min'})
+        df['Asia_High'] = df['Date_Key_Tmp'].map(asia_stats['High'])
+        df['Asia_Low'] = df['Date_Key_Tmp'].map(asia_stats['Low'])
+        df.drop(columns=['Date_Key_Tmp'], inplace=True)
+    # ---------------------------------------------------------
+
+
     # 1. Identify NY Open (15:00 Kyiv time)
     # We use a ffill to carry the 15:00 price through the rest of the day
     df['NY_Open_Price'] = df.where(df['UA_Hour'] == 15)['Open']
