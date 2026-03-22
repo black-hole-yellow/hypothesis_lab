@@ -40,9 +40,6 @@ FEATURE_REGISTRY = {
     "Algo_Vol_Crush_Short": {"func": add_pure_algo_vol_crush_context, "type": BOOL},
     
     # Session Additions (Симметрия + Типы)
-    "NY_Opened_In_Asia_Range": {"func": add_ny_sr_touch_context, "type": BOOL},
-    "NY_Sweep_Asia_High": {"func": add_asian_sweep_context, "type": BOOL},
-    "NY_Sweep_Asia_Low": {"func": add_asian_sweep_context, "type": BOOL},
     "First_LDN_PDL_Long": {"func": add_london_pdh_pdl_sweep_context, "type": BOOL},
     "First_LDN_PDH_Short": {"func": add_london_pdh_pdl_sweep_context, "type": BOOL},
     "LDN_Protected_AL_Long": {"func": add_asia_fvg_protection_context, "type": BOOL},

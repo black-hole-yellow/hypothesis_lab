@@ -1,38 +1,57 @@
+import os
+import json
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
 # ==========================================
 # ХЕЛПЕР: УМНЫЙ ПОИСК ДАТ (Игнорируем минуты)
 # ==========================================
 def _get_event_dates(events, keywords: list) -> list:
-    if events is None: return []
+    """Загружает JSON используя абсолютный путь, гарантируя чтение Категорий."""
+    keywords_lower = [k.lower() for k in keywords]
     
     # Расширяем ключевые слова для надежности
-    keywords_lower = [k.lower() for k in keywords]
     if any(k in keywords_lower for k in ['unemployment', 'jobless']):
         keywords_lower.append('unemp')
     if any(k in keywords_lower for k in ['gilt', 'bond', 'debt']):
-        keywords_lower.extend(['shock', 'geopolitical', 'political'])
+        keywords_lower.extend(['shock', 'geopolitical', 'political', 'coup', 'war', 'sovereign'])
     if any(k in keywords_lower for k in ['rate', 'policy']):
-        keywords_lower.extend(['fomc', 'boe', 'hike', 'cut'])
+        keywords_lower.extend(['fomc', 'boe', 'hike', 'cut', 'interest'])
+    if 'retail' in keywords_lower:
+        keywords_lower.extend(['sales', 'consumer'])
 
     events_list = []
     
-    # БЕЗОПАСНАЯ РАСПАКОВКА PANDAS DATAFRAME
-    if isinstance(events, pd.DataFrame):
-        for col in events.columns:
-            for item in events[col].dropna():
-                if isinstance(item, dict):
-                    item['Category'] = col
-                    events_list.append(item)
-    elif isinstance(events, dict):
-        for cat, evt_list in events.items():
-            for e in evt_list:
-                if isinstance(e, dict):
-                    e['Category'] = cat
-                    events_list.append(e)
+    # 1. BULLETPROOF ABSOLUTE PATH
+    # Computes exact path: src/library -> src -> hypothesis_lab -> data/macro_events.json
+    current_dir = Path(__file__).parent
+    project_root = current_dir.parent.parent
+    file_path = project_root / 'data' / 'macro_events.json'
+    
+    if file_path.exists():
+        with open(file_path, 'r', encoding='utf-8') as f:
+            raw_json = json.load(f)
+            for cat, evt_list in raw_json.items():
+                for e in evt_list:
+                    if isinstance(e, dict):
+                        e['Category'] = cat
+                        events_list.append(e)
     else:
-        events_list = events
+        # 2. BULLETPROOF DATAFRAME UNWRAP (If file mysteriously vanishes)
+        print(f"⚠️ Warning: Could not find {file_path}. Using DataFrame fallback.")
+        if isinstance(events, pd.DataFrame):
+            for col in events.columns:
+                for item in events[col].dropna():
+                    if isinstance(item, dict):
+                        item['Category'] = col
+                        events_list.append(item)
+        elif isinstance(events, dict):
+            for cat, evt_list in events.items():
+                for e in evt_list:
+                    if isinstance(e, dict):
+                        e['Category'] = cat
+                        events_list.append(e)
 
     dates = set()
     for e in events_list:
@@ -41,7 +60,7 @@ def _get_event_dates(events, keywords: list) -> list:
         name_lower = str(e.get('name', e.get('Event', ''))).lower()
         category_lower = str(e.get('Category', '')).lower().replace('_', ' ')
         
-        # Ищем ключевое слово как в имени, так и в категории
+        # Ищем совпадения в ИМЕНИ или КАТЕГОРИИ
         if any(k in name_lower or k in category_lower for k in keywords_lower):
             dt_raw = e.get('start_date', e.get('Date', ''))
             if dt_raw:
@@ -50,10 +69,10 @@ def _get_event_dates(events, keywords: list) -> list:
                     dates.add(pd.to_datetime(date_part).date())
                 except:
                     pass
+                    
+    # Отладочный принт (покажет в терминале, сколько дат нашел каждый макро-ивент)
+    # print(f"   🔎 [MACRO] {keywords[0].upper()} -> Найдено {len(dates)} дат.")
     return list(dates)
-
-# IMPORTANT: In every macro feature function, update your date matching to this:
-# is_active_day = pd.Series(df.index.date).astype(str).isin([str(d) for d in dates]).values
 
 # ==========================================
 # 1. NON-FARM PAYROLLS (NFP)
