@@ -86,6 +86,16 @@ FEATURE_REGISTRY = {
     "Swept_AH_Into_FVG": {"func": add_asia_fvg_protection_context, "type": BOOL},
     "1h_Bullish_Flip": {"func": add_htf_trend_probability, "type": BOOL},
     "1h_Bearish_Flip": {"func": add_htf_trend_probability, "type": BOOL},
+
+
+    "Gap_Down_Fade_Long": {"func": add_weekend_gap_context, "type": BOOL},
+    "Gap_Up_Fade_Short": {"func": add_weekend_gap_context, "type": BOOL},
+    "Macro_Inside_Bar_Long": {"func": add_macro_shock_inside_bar_context, "type": BOOL},
+    "Macro_Inside_Bar_Short": {"func": add_macro_shock_inside_bar_context, "type": BOOL},
+    "NY_Expansion_Long": {"func": add_ny_expansion_context, "type": BOOL},
+    "NY_Expansion_Short": {"func": add_ny_expansion_context, "type": BOOL},
+    "Asian_Sweep_Long": {"func": add_asian_sweep_context, "type": BOOL},
+    "Asian_Sweep_Short": {"func": add_asian_sweep_context, "type": BOOL},
     
     # Специфические числовые значения
     "UA_Hour": {"func": None, "type": CAT}, # Генерируется движком
