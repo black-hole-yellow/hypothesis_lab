@@ -7,7 +7,7 @@ from src.library.structure_features import *
 # Типы данных для строгой логики
 BOOL = "boolean"      # 1 или 0 (сигналы)
 FLOAT = "float"     # Ценовые уровни, ATR, вероятности
-CAT = "categorical" # Режимы (0, 1, 2)
+CAT = "categorical" # Режимы (0, 1, 2)w
 
 FEATURE_REGISTRY = {
     # --- SESSION / TIME (time_features.py) ---
@@ -51,11 +51,10 @@ FEATURE_REGISTRY = {
     "NY_Sweep_Asia_High": {"type": "binary", "func": add_ny_expansion_context},
     "NY_Sweep_Asia_Low": {"type": "binary", "func": add_ny_expansion_context},
     "Swept_AH_Into_FVG": {"type": "binary", "func": add_asian_sweep_context},
-    "Swept_AL_Into_FVG": {"type": "binary", "func": add_asian_sweep_context},
     "1h_Bullish_Flip": {"func": add_structure_flip_context, "type": BOOL},
     "1h_Bearish_Flip": {"func": add_structure_flip_context, "type": BOOL},
     "Swept_AL_Into_FVG": {"func": add_asian_sweep_context, "type": BOOL},
-    "Swept_AH_Into_FVG": {"func": add_asian_sweep_context, "type": BOOL},
+    
     
 
     # --- MACRO & NEWS (macro_features.py) ---
