@@ -309,10 +309,11 @@ def add_volume_profile_features(df, session_start="00:00", session_end="08:00", 
         
         # Check if the current price is inside an identified Low Volume Node (Void)
         # We check if the Close is within any of the LVN price ranges
+        valid_indices = df.index.intersection(day_indices)
         for lvn_p in lvn_bins:
-            is_in_void = (df.loc[day_indices, 'Close'] >= lvn_p) & \
-                         (df.loc[day_indices, 'Close'] < lvn_p + bin_width)
-            df.loc[day_indices[is_in_void], 'In_Liquidity_Void'] = 1
+            is_in_void = (df.loc[valid_indices, 'Close'] >= lvn_p) & \
+                        (df.loc[valid_indices, 'Close'] < lvn_p + bin_width)
+            df.loc[valid_indices[is_in_void], 'In_Liquidity_Void'] = 1
 
     # Cleanup temporary columns
     df.drop(columns=['is_session', 'date_group'], inplace=True)

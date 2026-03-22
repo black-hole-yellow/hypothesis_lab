@@ -5,16 +5,23 @@ import numpy as np
 # ХЕЛПЕР: УМНЫЙ ПОИСК ДАТ (Игнорируем минуты)
 # ==========================================
 def _get_event_dates(events: list, keywords: list) -> list:
-    """Извлекает уникальные даты (без времени) для нужных событий."""
+    """Умный извлекатель дат, который понимает любые форматы JSON-календарей."""
     if not events: return []
     dates = set()
     for e in events:
-        name = str(e.get('Event_Name', '')).lower()
+        # Ищем название события в любых возможных ключах
+        name = str(e.get('Event_Name', e.get('event', e.get('title', e.get('Name', ''))))).lower()
+        
         if any(k.lower() in name for k in keywords):
-            if 'Datetime' in e:
-                # Берем только часть YYYY-MM-DD
-                date_str = str(e['Datetime']).split(' ')[0]
-                dates.add(pd.to_datetime(date_str).date())
+            # Ищем дату в любых возможных ключах
+            dt_raw = e.get('Datetime', e.get('date', e.get('time', e.get('Date', ''))))
+            if dt_raw:
+                # Отрезаем всё после 'T' (2023-11-03T15:30) или пробела (2023-11-03 15:30)
+                date_str = str(dt_raw).split('T')[0].split(' ')[0]
+                try:
+                    dates.add(pd.to_datetime(date_str).date())
+                except:
+                    pass
     return list(dates)
 
 # ==========================================
