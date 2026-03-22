@@ -5,11 +5,13 @@ import numpy as np
 # ХЕЛПЕР: УМНЫЙ ПОИСК ДАТ (Игнорируем минуты)
 # ==========================================
 def _get_event_dates(events, keywords: list) -> list:
-    """Универсальный парсер для словаря категорий macro_events.json."""
-    if not events: return []
-    all_events = []
+    if events is None: return []
     
-    if isinstance(events, dict):
+    # Safely convert DataFrame to list of dicts if needed
+    if isinstance(events, pd.DataFrame):
+        all_events = events.to_dict(orient='records')
+    elif isinstance(events, dict):
+        all_events = []
         for category, event_list in events.items():
             all_events.extend(event_list)
     else:
@@ -17,6 +19,7 @@ def _get_event_dates(events, keywords: list) -> list:
 
     dates = set()
     for e in all_events:
+        if not isinstance(e, dict): continue # Protect against string iteration
         name = str(e.get('name', e.get('Event', ''))).lower()
         
         if any(k.lower() in name for k in keywords):
@@ -28,6 +31,9 @@ def _get_event_dates(events, keywords: list) -> list:
                 except:
                     pass
     return list(dates)
+
+# IMPORTANT: In every macro feature function, update your date matching to this:
+# is_active_day = pd.Series(df.index.date).astype(str).isin([str(d) for d in dates]).values
 
 # ==========================================
 # 1. NON-FARM PAYROLLS (NFP)

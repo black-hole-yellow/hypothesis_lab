@@ -245,8 +245,11 @@ def add_ny_expansion_context(df: pd.DataFrame,events: list = None) -> pd.DataFra
         df['Asia_Low'] = df['Date_Key_Tmp'].map(asia_stats['Low'])
         df.drop(columns=['Date_Key_Tmp'], inplace=True)
 
-    df['NY_Open_Price'] = df.where(df['UA_Hour'] == 15)['Open']
-    df['NY_Open_Price'] = df.groupby(df.index.date)['NY_Open_Price'].ffill()
+    # Replace with this bulletproof mapping:
+    df['Date_Tmp'] = df.index.date
+    ny_opens = df[df['UA_Hour'] == 15].groupby('Date_Tmp')['Open'].first()
+    df['NY_Open_Price'] = df['Date_Tmp'].map(ny_opens)
+    df.drop(columns=['Date_Tmp'], inplace=True)
 
     df['NY_Opened_In_Asia_Range'] = (df['NY_Open_Price'] < df['Asia_High']) & \
                                      (df['NY_Open_Price'] > df['Asia_Low'])
@@ -255,11 +258,11 @@ def add_ny_expansion_context(df: pd.DataFrame,events: list = None) -> pd.DataFra
     
     df['NY_Sweep_Asia_Low'] = is_ny_session & \
                             (df['Low'] < df['Asia_Low']) & \
-                            (df['Low'].shift(1) >= df['Asia_Low'].shift(1))
+                            (df['Low'].shift(1) >= df['Asia_Low'])
 
     df['NY_Sweep_Asia_High'] = is_ny_session & \
                             (df['High'] > df['Asia_High']) & \
-                            (df['High'].shift(1) <= df['Asia_High'].shift(1))
+                            (df['High'].shift(1) <= df['Asia_High'])
 
     df['NY_Opened_In_Asia_Range'] = df['NY_Opened_In_Asia_Range'].fillna(False).astype(int)
     df['NY_Sweep_Asia_High'] = df['NY_Sweep_Asia_High'].astype(int)
