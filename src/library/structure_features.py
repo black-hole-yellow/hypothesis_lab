@@ -588,6 +588,29 @@ def add_htf_trend_probability(df: pd.DataFrame, events: list = None, htf: str = 
 
     return df
 
+def add_structure_flip_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    df = df.copy()
+    
+    # Basic swing detection (3-bar fractal)
+    df['Swing_High'] = (df['High'] > df['High'].shift(1)) & (df['High'] > df['High'].shift(-1))
+    df['Swing_Low'] = (df['Low'] < df['Low'].shift(1)) & (df['Low'] < df['Low'].shift(-1))
+    
+    # Forward fill the last known swing levels
+    df['Last_Swing_High_Price'] = df['High'].where(df['Swing_High']).ffill()
+    df['Last_Swing_Low_Price'] = df['Low'].where(df['Swing_Low']).ffill()
+    
+    # A Bullish Flip is when Close breaks above the last known Swing High
+    bullish_break = (df['Close'] > df['Last_Swing_High_Price'].shift(1))
+    # A Bearish Flip is when Close breaks below the last known Swing Low
+    bearish_break = (df['Close'] < df['Last_Swing_Low_Price'].shift(1))
+    
+    # Rolling window to keep the flip "active" for the JSON condition
+    df['1h_Bullish_Flip'] = bullish_break.rolling(3, min_periods=1).max().fillna(0).astype(int)
+    df['1h_Bearish_Flip'] = bearish_break.rolling(3, min_periods=1).max().fillna(0).astype(int)
+    
+    df.drop(columns=['Swing_High', 'Swing_Low', 'Last_Swing_High_Price', 'Last_Swing_Low_Price'], inplace=True, errors='ignore')
+    return df
+
 def add_asia_fvg_protection_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
     df = df.copy()
     """
@@ -609,7 +632,7 @@ def add_asia_fvg_protection_context(df: pd.DataFrame, events: list = None) -> pd
                                (df['Asia_Low'] >= df['FVG_4h_Bottom'])
 
     # 2. Проверяем, находится ли Азиатский Хай внутри медвежьего 4H FVG
-    df['Asia_High_Protected'] = (df['FVG_4h_Type'] == 'BEAR') & \
+    df['Asia_High'] = (df['FVG_4h_Type'] == 'BEAR') & \
                                 (df['Asia_High'] <= df['FVG_4h_Top']) & \
                                 (df['Asia_High'] >= df['FVG_4h_Bottom'])
 
@@ -620,7 +643,7 @@ def add_asia_fvg_protection_context(df: pd.DataFrame, events: list = None) -> pd
     df['LDN_Protected_AL_Long'] = is_london_open & df['Asia_Low']
     
     # Шорт, если Азиатский Хай защищен
-    df['LDN_Protected_AH_Short'] = is_london_open & df['Asia_High_Protected']
+    df['LDN_Protected_AH_Short'] = is_london_open & df['Asia_High']
 
     # Очистка и форматирование (1/0 для парсера)
     df['LDN_Protected_AL_Long'] = df['LDN_Protected_AL_Long'].fillna(False).astype(int)

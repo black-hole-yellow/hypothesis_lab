@@ -52,6 +52,11 @@ FEATURE_REGISTRY = {
     "NY_Sweep_Asia_Low": {"type": "binary", "func": add_ny_expansion_context},
     "Swept_AH_Into_FVG": {"type": "binary", "func": add_asian_sweep_context},
     "Swept_AL_Into_FVG": {"type": "binary", "func": add_asian_sweep_context},
+    "1h_Bullish_Flip": {"func": add_structure_flip_context, "type": BOOL},
+    "1h_Bearish_Flip": {"func": add_structure_flip_context, "type": BOOL},
+    "Swept_AL_Into_FVG": {"func": add_asian_sweep_context, "type": BOOL},
+    "Swept_AH_Into_FVG": {"func": add_asian_sweep_context, "type": BOOL},
+    
 
     # --- MACRO & NEWS (macro_features.py) ---
     # Исправлена асимметрия: добавлены недостающие стороны

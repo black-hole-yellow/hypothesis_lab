@@ -5,31 +5,36 @@ import numpy as np
 # ХЕЛПЕР: УМНЫЙ ПОИСК ДАТ (Игнорируем минуты)
 # ==========================================
 def _get_event_dates(events, keywords: list) -> list:
-    if events is None: return []
+    """Универсальный парсер для словаря категорий macro_events.json."""
+    if not events: return []
     
-    # Safely convert DataFrame to list of dicts if needed
-    if isinstance(events, pd.DataFrame):
-        all_events = events.to_dict(orient='records')
-    elif isinstance(events, dict):
-        all_events = []
-        for category, event_list in events.items():
-            all_events.extend(event_list)
-    else:
-        all_events = events
+    # Расширяем ключевые слова для уверенности
+    if 'unemployment' in keywords or 'jobless' in keywords:
+        keywords.append('unemp')
+    if 'gilt' in keywords or 'bond' in keywords:
+        keywords.extend(['shock', 'geopolitical']) 
+    if 'rate' in keywords or 'policy' in keywords:
+        keywords.extend(['fomc', 'boe', 'hike', 'cut'])
 
     dates = set()
-    for e in all_events:
-        if not isinstance(e, dict): continue # Protect against string iteration
-        name = str(e.get('name', e.get('Event', ''))).lower()
-        
-        if any(k.lower() in name for k in keywords):
-            dt_raw = e.get('start_date', e.get('Date', ''))
-            if dt_raw:
-                date_part = str(dt_raw).split('T')[0].split(' ')[0]
-                try:
-                    dates.add(pd.to_datetime(date_part).date())
-                except:
-                    pass
+    if isinstance(events, dict):
+        for category, event_list in events.items():
+            # Очищаем ключ категории (UK_CPI_Shock -> uk cpi shock)
+            category_clean = category.lower().replace('_', ' ')
+            
+            for e in event_list:
+                if not isinstance(e, dict): continue
+                name_lower = str(e.get('name', e.get('Event', ''))).lower()
+                
+                # Ищем совпадение ИЛИ в имени события, ИЛИ в названии категории!
+                if any(k.lower() in name_lower or k.lower() in category_clean for k in keywords):
+                    dt_raw = e.get('start_date', e.get('Date', ''))
+                    if dt_raw:
+                        date_part = str(dt_raw).split('T')[0].split(' ')[0]
+                        try:
+                            dates.add(pd.to_datetime(date_part).date())
+                        except:
+                            pass
     return list(dates)
 
 # IMPORTANT: In every macro feature function, update your date matching to this:
