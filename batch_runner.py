@@ -49,7 +49,7 @@ def process_pending_hypotheses():
 
         engine = LabEngine(
             data_file=processed_data_path,
-            start_date="2015-01-01",
+            start_date="2025-01-01",
             end_date="2026-02-27",
             timeframe=timeframe
         )

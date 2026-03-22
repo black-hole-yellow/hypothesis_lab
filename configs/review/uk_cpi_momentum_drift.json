@@ -1,0 +1,50 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_023_UK_CPI_MOMENTUM_4H",
+    "name": "UK CPI Shock 4H Momentum Drift",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Если дельта UK CPI >= |0.3%|, направление институционального потока подтверждается закрытием 4H свечи после релиза. После этого тренд сохраняется до конца нью-йоркской сессии."
+  },
+  "universe": {
+    "instruments": [
+      "GBPUSD"
+    ],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "CPI_Momentum_Long",
+      "CPI_Momentum_Short"
+    ]
+  },
+  "parameters": {},
+  "logic": {
+    "filters": [],
+    "entry_rules": {
+      "long_trigger": [
+        {
+          "comment": "4H подтверждение после CPI шока было бычьим. Заходим в Лонг.",
+          "feature": "CPI_Momentum_Long",
+          "operator": ">",
+          "value": 0
+        }
+      ],
+      "short_trigger": [
+        {
+          "comment": "4H подтверждение после CPI шока было медвежьим. Заходим в Шорт.",
+          "feature": "CPI_Momentum_Short",
+          "operator": ">",
+          "value": 0
+        }
+      ]
+    },
+    "execution_rules": {
+      "mode": "time_based",
+      "max_hold_bars": 8,
+      "exit_hour_ua": null,
+      "max_trades_per_day": 1,
+      "allow_resweep": false
+    }
+  }
+}

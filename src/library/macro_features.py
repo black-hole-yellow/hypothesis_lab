@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 
+PIP = 0.0001
+
 def add_geopolitical_shock_context(df: pd.DataFrame, events: list) -> pd.DataFrame:
     """
     Сканирует реестр макро-событий и ставит триггер '1' на той свече,

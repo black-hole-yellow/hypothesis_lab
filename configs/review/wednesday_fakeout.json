@@ -1,0 +1,46 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_039_WEDNESDAY_FAKEOUT",
+    "name": "Mid-Week Liquidity Sweep (Fakeout)",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "В среду маркет-мейкеры часто инициируют ложные пробои максимумов или минимумов вторника для сбора стоп-лоссов розничных трейдеров. Если на часовом графике происходит прокол экстремума предыдущего дня с последующим закрытием внутри диапазона (Rejection), мы входим в сторону возврата к среднему."
+  },
+  "universe": {
+    "instruments": [
+      "GBPUSD"
+    ],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "Wed_Fakeout_Long",
+      "Wed_Fakeout_Short"
+    ]
+  },
+  "logic": {
+    "entry_rules": {
+      "long_trigger": [
+        {
+          "feature": "Wed_Fakeout_Long",
+          "operator": ">",
+          "value": 0
+        }
+      ],
+      "short_trigger": [
+        {
+          "feature": "Wed_Fakeout_Short",
+          "operator": ">",
+          "value": 0
+        }
+      ]
+    },
+    "execution_rules": {
+      "mode": "time_based",
+      "max_hold_bars": 8,
+      "exit_hour_ua": null,
+      "max_trades_per_day": 1,
+      "allow_resweep": false
+    }
+  }
+}

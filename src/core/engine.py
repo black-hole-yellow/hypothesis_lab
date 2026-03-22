@@ -80,28 +80,35 @@ class LabEngine:
         self.df = add_htf_trend_probability(self.df, htf='4h', lookback=60)
 
     def apply_custom_features(self, required_features: list):
-        """ДИНАМИЧЕСКАЯ ИНЪЕКЦИЯ ФИЧЕЙ ИЗ JSON"""
+        """Инъекция с учетом типов данных."""
         applied_functions = set()
         for feature in required_features:
-            if feature in FEATURE_REGISTRY:
-                func = FEATURE_REGISTRY[feature]
+            reg_entry = FEATURE_REGISTRY.get(feature)
+            if reg_entry and reg_entry["func"]:
+                func = reg_entry["func"]
                 if func not in applied_functions:
                     self.df = func(self.df, self.events)
                     applied_functions.add(func)
+            elif not reg_entry:
+                print(f"⚠️ [WARNING] Feature '{feature}' missing from Registry!")
 
     def run_hypothesis(self, hypothesis):
-        """Universal Trade Manager Powered by Standardized JSON Execution Rules"""
         current_day = None
         active_trades, trades_opened_today, losses_today = [], 0, 0
+        hypothesis.feature_types = {k: v["type"] for k, v in FEATURE_REGISTRY.items()}
 
-        # --- ИЗВЛЕКАЕМ УНИВЕРСАЛЬНЫЕ ПРАВИЛА ИЗ JSON ---
+        # --- БЕЗОПАСНОЕ ИЗВЛЕЧЕНИЕ ПРАВИЛ (Защита от None) ---
         exec_rules = getattr(hypothesis, 'execution_rules', {})
-        
         mode = exec_rules.get('mode', 'risk_reward')
         target_rr = exec_rules.get('risk_reward_ratio', 2.0)
         sl_atr_mult = exec_rules.get('sl_atr_multiplier', 1.0)
-        max_hold_bars = exec_rules.get('max_hold_bars', 999)
-        max_trades = exec_rules.get('max_trades_per_day', 999)
+        
+        max_hold_bars = exec_rules.get('max_hold_bars')
+        if max_hold_bars is None: max_hold_bars = 999 # Защита от краша!
+        
+        max_trades = exec_rules.get('max_trades_per_day')
+        if max_trades is None: max_trades = 999 # Защита от краша!
+        
         allow_resweep = exec_rules.get('allow_resweep', False)
 
         for index, row in self.df.iterrows():
@@ -121,7 +128,7 @@ class LabEngine:
                 if mode == 'time_based':
                     # --- РЕЖИМ 1: Выход по Времени ---
                     trade['Hold_Bars'] = trade.get('Hold_Bars', 0) + 1
-                    
+
                     if trade['Hold_Bars'] >= max_hold_bars:
                         close_price = row['Close']
                         if direction == 'Long':

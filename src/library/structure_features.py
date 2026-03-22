@@ -4,7 +4,7 @@ from scipy.stats import linregress
 
 PIP = 0.0001
 
-def add_previous_boundaries(df: pd.DataFrame) -> pd.DataFrame:
+def add_previous_boundaries(df: pd.DataFrame, events: list = None,) -> pd.DataFrame:
     """
     Static session-based boundaries for PDH/PDL and PWH/PWL.
     Ensures levels update ONLY when a new session begins.
@@ -42,7 +42,7 @@ def add_previous_boundaries(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-def calculate_fvgs(df: pd.DataFrame) -> pd.DataFrame:
+def calculate_fvgs(df: pd.DataFrame, events: list = None,) -> pd.DataFrame:
     """
     Identifies ALL FVGs (Bullish/Bearish) and calculates their Middle Line.
     (Closure tracking removed per user request for performance and scope).
@@ -102,7 +102,7 @@ def get_htf_fvgs(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
     result_cols = [f'FVG_{timeframe}_Type', f'FVG_{timeframe}_Top', f'FVG_{timeframe}_Bottom', f'FVG_{timeframe}_Mid']
     return htf_df[result_cols].shift(1)
 
-def calculate_multi_tf_fvgs(df: pd.DataFrame) -> pd.DataFrame:
+def calculate_multi_tf_fvgs(df: pd.DataFrame, events: list = None,) -> pd.DataFrame:
     """
     Calculates FVGs across 1h, 4h, and 1D timeframes and maps them 
     back to the base 1-hour dataframe.
@@ -249,7 +249,7 @@ def get_confirmed_swings(weekly_df: pd.DataFrame, daily_df: pd.DataFrame, curren
         'Lows': final_lows
     }
 
-def add_fvg_order_flow_context(df: pd.DataFrame) -> pd.DataFrame:
+def add_fvg_order_flow_context(df: pd.DataFrame, events: list = None,) -> pd.DataFrame:
     """
     Identifies if price is inside a 4H FVG and if a 1H Order Flow Flip occurred.
     Requires calculate_multi_tf_fvgs and add_volume_zscore to be run first.
@@ -288,7 +288,7 @@ def add_fvg_order_flow_context(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-def add_weekly_swing_context(df: pd.DataFrame) -> pd.DataFrame:
+def add_weekly_swing_context(df: pd.DataFrame, events: list = None,) -> pd.DataFrame:
     """
     Calculates the Weekly Trend (Swing) using a 168-hour lookback.
     Returns 1 for Bullish (Price > SMA), -1 for Bearish.
@@ -304,7 +304,7 @@ def add_weekly_swing_context(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-def add_1w_swing_context(df: pd.DataFrame) -> pd.DataFrame:
+def add_1w_swing_context(df: pd.DataFrame, events: list = None,) -> pd.DataFrame:
     """
     Determines the 1W HTF Swing direction based on the last broken weekly extreme.
     Guaranteed zero lookahead bias and stateful tracking.
@@ -334,7 +334,7 @@ def add_1w_swing_context(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-def add_1d_swing_context(df: pd.DataFrame) -> pd.DataFrame:
+def add_1d_swing_context(df: pd.DataFrame, events: list = None,) -> pd.DataFrame:
     """
     Determines the 1D Swing direction based on the last broken daily extreme.
     Tracks structural breaks over a rolling 24-hour period.
@@ -362,7 +362,7 @@ def add_1d_swing_context(df: pd.DataFrame) -> pd.DataFrame:
     df.drop(columns=['1D_High', '1D_Low', 'Broke_1D_High', 'Broke_1D_Low', '1D_Swing_Signal', '1D_Swing_State'], inplace=True)
     return df
 
-def add_weekly_floor_context(df: pd.DataFrame) -> pd.DataFrame:
+def add_weekly_floor_context(df: pd.DataFrame, events: list = None,) -> pd.DataFrame:
     """
     Detects if a London Fractal aligns with the Weekly Swing direction.
     Uses an expanded time window (09:00 - 14:00) to account for n=2 confirmation lag.
@@ -396,7 +396,7 @@ def add_weekly_floor_context(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-def add_fvg_sr_confluence_context(df: pd.DataFrame, max_dist_pips: int = 30) -> pd.DataFrame:
+def add_fvg_sr_confluence_context(df: pd.DataFrame,events: list = None, max_dist_pips: int = 30) -> pd.DataFrame:
     """
     Detects when a 1D FVG forms immediately adjacent to a Major S&R level (Confluence).
     Triggers on the strictly FIRST touch of this confluence zone per day.
@@ -434,7 +434,7 @@ def add_fvg_sr_confluence_context(df: pd.DataFrame, max_dist_pips: int = 30) -> 
 
     return df
 
-def add_1w_level_rejection_context(df: pd.DataFrame, max_dist_pips: int = 20) -> pd.DataFrame:
+def add_1w_level_rejection_context(df: pd.DataFrame, events: list = None, max_dist_pips: int = 20) -> pd.DataFrame:
     """
     Detects if a counter-trend pullback taps a Major Weekly Level (PWH/PWL) 
     and prints a confirmed fractal, signaling macro trend continuation.
@@ -470,12 +470,20 @@ def add_1w_level_rejection_context(df: pd.DataFrame, max_dist_pips: int = 20) ->
     df.drop(columns=['Date', '1W_Rej_Trigger_Count', 'Reject_PWL_Long', 'Reject_PWH_Short'], inplace=True)
     return df
 
-def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int = 60) -> pd.DataFrame:
+def add_htf_trend_probability(df: pd.DataFrame, events: list = None, htf: str = '4h', lookback: int = 60) -> pd.DataFrame:
     """
     Calculates a 0-100% Bullish Trend Probability using HTF Confluence.
     50% based on Market Structure (Higher Highs / Lower Lows).
     50% based on Statistical Vector (Linear Regression Slope * R-Squared).
     """
+
+    # --- ЗАЩИТА ОТ ДВОЙНОГО РАСЧЕТА ---
+    if 'HTF_Bullish_Prob' in df.columns:
+        # Если колонка уже есть, просто возвращаем DF
+        return df
+    
+    df = df.copy()
+
     # 1. Resample to Higher Timeframe
     # We use 'h' for pandas timeframe formatting compatibility
     htf_df = pd.DataFrame()
@@ -569,7 +577,8 @@ def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int =
     htf_df['HTF_Bullish_Prob'] = htf_df['HTF_Bullish_Prob'].shift(1)
 
     # Map back to your main dataframe
-    df = df.join(htf_df[['HTF_Bullish_Prob']])
+    if 'HTF_Bullish_Prob' not in df.columns:
+        df = df.join(htf_df[['HTF_Bullish_Prob']])
     
     # Forward fill the 4H value across the four 1H candles
     df['HTF_Bullish_Prob'] = df['HTF_Bullish_Prob'].ffill().fillna(50.0) 
@@ -579,13 +588,23 @@ def add_htf_trend_probability(df: pd.DataFrame, htf: str = '4h', lookback: int =
 
     return df
 
-def add_asia_fvg_protection_context(df: pd.DataFrame) -> pd.DataFrame:
+def add_asia_fvg_protection_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    df = df.copy()
     """
     Определяет, находится ли Азиатский Хай/Лоу внутри 4H FVG.
     Запускает триггер на продолжение тренда ровно в 10:00 (London Open).
     """
+    # --- ДОБАВИТЬ ЭТОТ БЛОК: Локальный расчет Азии ---
+    if 'Asia_Low' not in df.columns or 'Asia_High' not in df.columns:
+        df['Day_Key'] = df.index.normalize()
+        asia_mask = (df.index.hour >= 0) & (df.index.hour < 7)
+        asia_stats = df[asia_mask].groupby('Day_Key').agg({'High': 'max', 'Low': 'min'})
+        df['Asia_High'] = df['Day_Key'].map(asia_stats['High'])
+        df['Asia_Low'] = df['Day_Key'].map(asia_stats['Low'])
+    # --------------------------------------------------
+
     # 1. Проверяем, находится ли Азиатский Лоу внутри бычьего 4H FVG
-    df['Asia_Low_Protected'] = (df['FVG_4h_Type'] == 'BULL') & \
+    df['Asia_Low'] = (df['FVG_4h_Type'] == 'BULL') & \
                                (df['Asia_Low'] <= df['FVG_4h_Top']) & \
                                (df['Asia_Low'] >= df['FVG_4h_Bottom'])
 
@@ -598,7 +617,7 @@ def add_asia_fvg_protection_context(df: pd.DataFrame) -> pd.DataFrame:
     is_london_open = (df['UA_Hour'] == 10)
 
     # Лонг, если Азиатский Лоу защищен
-    df['LDN_Protected_AL_Long'] = is_london_open & df['Asia_Low_Protected']
+    df['LDN_Protected_AL_Long'] = is_london_open & df['Asia_Low']
     
     # Шорт, если Азиатский Хай защищен
     df['LDN_Protected_AH_Short'] = is_london_open & df['Asia_High_Protected']
@@ -607,5 +626,5 @@ def add_asia_fvg_protection_context(df: pd.DataFrame) -> pd.DataFrame:
     df['LDN_Protected_AL_Long'] = df['LDN_Protected_AL_Long'].fillna(False).astype(int)
     df['LDN_Protected_AH_Short'] = df['LDN_Protected_AH_Short'].fillna(False).astype(int)
 
-    df.drop(columns=['Asia_Low_Protected', 'Asia_High_Protected'], inplace=True)
+    df.drop(columns=['Day_Key'], inplace=True, errors='ignore')
     return df

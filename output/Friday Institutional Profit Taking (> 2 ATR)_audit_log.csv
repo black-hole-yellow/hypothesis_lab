@@ -1,0 +1,7 @@
+Datetime_Kyiv,Trend_%,Close_Price,Signal_Triggered,Direction,Friday_Reversal_Short,Outcome,Entry,SL,TP,Friday_Reversal_Long
+2025-01-24 18:00:00,60.2,1.24939,Yes,Short,1.0,Win,1.24939,0,0,
+2025-03-07 18:00:00,80.3,1.29148,Yes,Short,1.0,Loss,1.29148,0,0,
+2025-05-23 19:00:00,63.8,1.35082,Yes,Short,1.0,Loss,1.35082,0,0,
+2025-06-27 19:00:00,67.3,1.37173,Yes,Short,1.0,Loss,1.37173,0,0,
+2025-10-31 18:00:00,0.0,1.31279,Yes,Long,,Win,1.31279,0,0,1.0
+2026-01-23 18:00:00,26.6,1.3588,Yes,Short,1.0,Loss,1.3588,0,0,

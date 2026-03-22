@@ -1,0 +1,46 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_050_LONDON_FIX_FADE",
+    "name": "London Fix Reversal (End of Day Exhaustion)",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Микроструктура банковского фиксинга. Если к 18:00 UA рынок прошел направленно >0.8 ATR, фонды фиксируют прибыль перед закрытием Лондона. Это создает резкий контр-трендовый откат. Стоп за экстремум дня."
+  },
+  "universe": {
+    "instruments": [
+      "GBPUSD"
+    ],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "Fix_Fade_Long",
+      "Fix_Fade_Short"
+    ]
+  },
+  "logic": {
+    "entry_rules": {
+      "long_trigger": [
+        {
+          "feature": "Fix_Fade_Long",
+          "operator": ">",
+          "value": 0
+        }
+      ],
+      "short_trigger": [
+        {
+          "feature": "Fix_Fade_Short",
+          "operator": ">",
+          "value": 0
+        }
+      ]
+    },
+    "execution_rules": {
+      "mode": "risk_reward",
+      "risk_reward_ratio": 2.0,
+      "sl_atr_multiplier": 1.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": true
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_027A_MACRO_INSIDE_BAR",
+    "name": "Macro Shock Inside Bar (Strict 24H)",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Если внезапная макро-новость вызывает спайк >3σ, алгоритмы убирают ликвидность. Следующие 24 часа рынок проводит в режиме ожидания (формируется Inside Bar, волатильность падает)."
+  },
+  "universe": {
+    "instruments": [
+      "GBPUSD"
+    ],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "Macro_Inside_Bar_Short"
+    ]
+  },
+  "logic": {
+    "filters": [],
+    "entry_rules": {
+      "long_trigger": [],
+      "short_trigger": [
+        {
+          "comment": "Макро-шок + Спайк 3 Сигмы. Шорт волатильности (формирование Inside Bar).",
+          "feature": "Macro_Inside_Bar_Short",
+          "operator": ">",
+          "value": 0
+        }
+      ]
+    },
+    "execution_rules": {
+      "mode": "risk_reward",
+      "risk_reward_ratio": 2.0,
+      "sl_atr_multiplier": 1.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": true
+    }
+  }
+}

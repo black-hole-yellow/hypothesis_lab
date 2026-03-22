@@ -1,0 +1,74 @@
+{
+  "metadata": {
+    "hypothesis_id": "H_006_ASIAN_SWEEP_FVG",
+    "name": "Asian Killzone Sweep to 4H FVG",
+    "author": "Quant_Lab_Alpha",
+    "rationale": "Identifies when price sweeps the Asian High/Low to grab liquidity, perfectly tapping a resting 4H FVG before printing an immediate order flow reversal."
+  },
+  "universe": {
+    "instruments": [
+      "GBPUSD"
+    ],
+    "resolution": "1h",
+    "timezone": "UTC"
+  },
+  "data_dependencies": {
+    "required_features": [
+      "Swept_AL_Into_FVG",
+      "Swept_AH_Into_FVG",
+      "1h_Bullish_Flip",
+      "1h_Bearish_Flip",
+      "UA_Hour"
+    ]
+  },
+  "parameters": {},
+  "logic": {
+    "filters": [
+      {
+        "comment": "Trade only AFTER the Asian Session is locked",
+        "feature": "UA_Hour",
+        "operator": ">=",
+        "value": 9
+      },
+      {
+        "comment": "Stop taking sweeps late in the US session",
+        "feature": "UA_Hour",
+        "operator": "<=",
+        "value": 18
+      }
+    ],
+    "entry_rules": {
+      "long_trigger": [
+        {
+          "feature": "Swept_AL_Into_FVG",
+          "operator": "==",
+          "value": 1
+        },
+        {
+          "feature": "1h_Bullish_Flip",
+          "operator": "==",
+          "value": 1
+        }
+      ],
+      "short_trigger": [
+        {
+          "feature": "Swept_AH_Into_FVG",
+          "operator": "==",
+          "value": 1
+        },
+        {
+          "feature": "1h_Bearish_Flip",
+          "operator": "==",
+          "value": 1
+        }
+      ]
+    },
+    "execution_rules": {
+      "mode": "risk_reward",
+      "risk_reward_ratio": 2.0,
+      "sl_atr_multiplier": 1.0,
+      "max_trades_per_day": 1,
+      "allow_resweep": true
+    }
+  }
+}

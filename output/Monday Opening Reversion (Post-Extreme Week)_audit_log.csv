@@ -1,0 +1,7 @@
+Datetime_Kyiv,Trend_%,Close_Price,Signal_Triggered,Direction,Monday_Reversion_Short,Outcome,Entry,SL,TP,Monday_Reversion_Long
+2025-01-27 02:00:00,61.4,1.24556,Yes,Short,1.0,Loss,1.24556,0,0,
+2025-03-10 02:00:00,84.3,1.29378,Yes,Short,1.0,Win,1.29378,0,0,
+2025-05-26 03:00:00,67.5,1.35373,Yes,Short,1.0,Loss,1.35373,0,0,
+2025-06-30 03:00:00,48.3,1.37184,Yes,Short,1.0,Win,1.37184,0,0,
+2025-11-03 02:00:00,0.0,1.3135,Yes,Long,,Loss,1.3135,0,0,1.0
+2026-01-26 02:00:00,31.2,1.36669,Yes,Short,1.0,Win,1.36669,0,0,

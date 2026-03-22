@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+PIP = 0.0001
+
 def add_judas_swing_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
 
     """
@@ -54,7 +56,7 @@ def add_judas_swing_context(df: pd.DataFrame, events: list = None) -> pd.DataFra
     df.drop(columns=['Day_Key', 'Asia_High_Day', 'Asia_Low_Day'], inplace=True, errors='ignore')
     return df
 
-def add_asian_sweep_context(df: pd.DataFrame, max_dist_pips: int = 15) -> pd.DataFrame:
+def add_asian_sweep_context(df: pd.DataFrame, events=None, max_dist_pips: int = 15) -> pd.DataFrame:
     """
     Calculates Asian Session Extremes and detects sweeps into 4H FVGs.
     Requires calculate_multi_tf_fvgs to be run first.
@@ -300,7 +302,7 @@ def add_london_fix_fade_context(df: pd.DataFrame, events: list = None) -> pd.Dat
     df.drop(columns=['Day_Key', 'Daily_Range', 'ATR_14D', 'Day_Trend_Vector', 'Day_Distance'], inplace=True, errors='ignore')
     return df
 
-def add_london_pdh_pdl_sweep_context(df: pd.DataFrame) -> pd.DataFrame:
+def add_london_pdh_pdl_sweep_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
     """
     Detects if the London session sweeps the Previous Day High/Low 
     and prints a confirmed fractal at that exact sweep.
@@ -336,7 +338,7 @@ def add_london_pdh_pdl_sweep_context(df: pd.DataFrame) -> pd.DataFrame:
     df.drop(columns=['Date', 'Sweep_Trigger_Count', 'LDN_Sweep_PDL_Long', 'LDN_Sweep_PDH_Short'], inplace=True)
     return df
 
-def add_london_counter_fractal_context(df: pd.DataFrame) -> pd.DataFrame:
+def add_london_counter_fractal_context(df: pd.DataFrame,events: list = None) -> pd.DataFrame:
     """
     Detects when a London fractal forms AGAINST the 1D trend (a Liquidity Trap).
     """
@@ -365,7 +367,7 @@ def add_london_counter_fractal_context(df: pd.DataFrame) -> pd.DataFrame:
     df.drop(columns=['Date', 'Trap_Trigger_Count', 'LDN_Counter_Low_Trap', 'LDN_Counter_High_Trap'], inplace=True)
     return df
 
-def add_ny_expansion_context(df: pd.DataFrame) -> pd.DataFrame:
+def add_ny_expansion_context(df: pd.DataFrame,events: list = None) -> pd.DataFrame:
     """
     Identifies if the NY session opened inside the Asian Range.
     Requires add_asian_sweep_context to be run first.
@@ -400,7 +402,7 @@ def add_ny_expansion_context(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-def add_ny_sr_touch_context(df: pd.DataFrame, tolerance_pips: int = 10) -> pd.DataFrame:
+def add_ny_sr_touch_context(df: pd.DataFrame, events: list = None, tolerance_pips: int = 15) -> pd.DataFrame:
     """
     Calculates Major S&R (20-Day Extremes) and detects the strictly FIRST touch 
     during the New York session, guaranteed once per day.
@@ -627,7 +629,7 @@ def add_friday_reversal_context(df: pd.DataFrame, events: list = None) -> pd.Dat
     
     return df
 
-def add_weekend_gap_context(df: pd.DataFrame) -> pd.DataFrame:
+def add_weekend_gap_context(df: pd.DataFrame,events: list = None) -> pd.DataFrame:
     """
     Находит выходные дни (разрыв между свечами > 24 часов).
     Считает размер гэпа открытия в пипсах.
@@ -800,7 +802,7 @@ def add_thursday_expansion_context(df: pd.DataFrame, events: list = None) -> pd.
     df.drop(columns=['Week_Open', 'Wed_Close', 'Daily_Range', 'ATR_14D'], inplace=True, errors='ignore')
     return df
 
-def add_pure_algo_vol_crush_context(df: pd.DataFrame) -> pd.DataFrame:
+def add_pure_algo_vol_crush_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
     """
     ГИПОТЕЗА Б (Algo): Ищет спайк >3 сигмы в ЛЮБОЙ день (без привязки к макро-календарю)
     и шортит волатильность на возврат к среднему (Mean Reversion).
