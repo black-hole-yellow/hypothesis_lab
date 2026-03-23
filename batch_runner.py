@@ -89,12 +89,16 @@ def process_pending_hypotheses():
         evaluator = SignalEvaluator(hypothesis, engine.df)
         metrics = evaluator.calculate_metrics()
 
-        # 6. Tear Sheet (UPDATED: Minimalist Optimal Hold View)
+        # 6. Tear Sheet
         print("=========================================")
         print(f"  TEAR SHEET: {metrics.get('Hypothesis', filename)}")
         print("=========================================")
-        print(f"  Frequency   : {metrics.get('Frequency', 0)}")
-
+        
+        # Display: Frequency: [Optimal] (Total: [General])
+        opt_n = metrics.get('Frequency', 0)
+        total_n = metrics.get('Total_Frequency', 0)
+        print(f"  Frequency   : {opt_n} (Total Triggers: {total_n})")
+        
         if metrics.get('Status') == 'REVIEW (Low Sample Size)':
             print("  Optimal Hold: N/A (Not enough data)")
         else:
