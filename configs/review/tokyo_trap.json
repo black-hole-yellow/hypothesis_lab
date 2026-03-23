@@ -6,9 +6,7 @@
     "rationale": "Микроструктура сессий. Ликвидность GBP/USD в Азии (00:00-07:00 UTC) низкая. Если Азия толкает цену более чем на 0.5 ATR, это часто является иррациональным движением на низких объемах. Лондонские банки при открытии (08:00 UTC) разворачивают этот тренд, восстанавливая ликвидность."
   },
   "universe": {
-    "instruments": [
-      "GBPUSD"
-    ],
+    "instruments": ["GBPUSD"],
     "resolution": "1h",
     "timezone": "UTC"
   },
@@ -19,6 +17,7 @@
     ]
   },
   "logic": {
+    "evaluation_metric": "Close",
     "entry_rules": {
       "long_trigger": [
         {
@@ -37,12 +36,8 @@
         }
       ]
     },
-    "execution_rules": {
-      "mode": "time_based",
-      "max_hold_bars": 8,
-      "exit_hour_ua": null,
-      "max_trades_per_day": 1,
-      "allow_resweep": false
+    "exit_rules": {
+      "max_hold_time_hours": 4
     }
   }
 }

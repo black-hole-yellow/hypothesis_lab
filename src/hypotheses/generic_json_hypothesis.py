@@ -10,16 +10,9 @@ class GenericJSONHypothesis(BaseHypothesis):
         self.parser = SignalParser(self.config.get("parameters", {}))
         self.logic = self.config.get("logic", {})
         
+        # --- NEW: Store the filters from the JSON ---
         self.filters = self.logic.get("filters", [])
         self.entry_rules = self.logic.get("entry_rules", {})
-        
-        # --- НОВОЕ: Извлекаем правила исполнения ---
-        self.execution_rules = self.logic.get("execution_rules", {
-            "risk_reward_ratio": 2.0,       # Дефолт 1:2
-            "max_trades_per_day": 999,      # Без лимита по дефолту
-            "allow_resweep": False,
-            "default_sl_atr_multiplier": 1.0
-        })
 
     def evaluate_row(self, row: pd.Series, index: pd.Timestamp):
         """
@@ -35,10 +28,12 @@ class GenericJSONHypothesis(BaseHypothesis):
         except:
             ua_time = str(index) 
 
-        # 2. Check Global Filters
+        # 2. Check Global Filters (Time, Void, etc.)
         if self.filters and not self.parser.check_conditions(row, self.filters):
-            return 
+            return # Skip immediately if filters fail
 
+        # 3. Create the STRICT Default Output Columns
+        # These will always appear first in your CSV, in this exact order.
         base_log = {
             'Datetime_Kyiv': ua_time,
             'Trend_%': row.get('HTF_Bullish_Prob', 'N/A'),
@@ -51,11 +46,15 @@ class GenericJSONHypothesis(BaseHypothesis):
         long_rules = self.entry_rules.get("long_trigger", [])
         if long_rules and self.parser.check_conditions(row, long_rules):
             self.triggers.append({'Datetime': index, 'Direction': 'Long'})
+            
             log_entry = base_log.copy()
             log_entry['Direction'] = 'Long'
+            
+            # Dynamically pull the exact features used in this specific hypothesis
             for rule in self.filters + long_rules:
                 feat = rule.get("feature")
                 if feat: log_entry[feat] = row.get(feat)
+                
             self.daily_logs.append(log_entry)
             return
 
@@ -63,9 +62,13 @@ class GenericJSONHypothesis(BaseHypothesis):
         short_rules = self.entry_rules.get("short_trigger", [])
         if short_rules and self.parser.check_conditions(row, short_rules):
             self.triggers.append({'Datetime': index, 'Direction': 'Short'})
+            
             log_entry = base_log.copy()
             log_entry['Direction'] = 'Short'
+            
+            # Dynamically pull the exact features used in this specific hypothesis
             for rule in self.filters + short_rules:
                 feat = rule.get("feature")
                 if feat: log_entry[feat] = row.get(feat)
+                
             self.daily_logs.append(log_entry)

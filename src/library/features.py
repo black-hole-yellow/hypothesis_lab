@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+from hmmlearn.hmm import GaussianHMM
 
 def add_volatility_zscore(df: pd.DataFrame, lookback: int = 50) -> pd.DataFrame:
     """
@@ -30,6 +31,8 @@ def add_price_zscore(df: pd.DataFrame, lookback: int = 50) -> pd.DataFrame:
     rolling_std = df['Close'].rolling(window=lookback).std()
     df['Price_ZScore'] = (df['Close'] - rolling_mean) / rolling_std
     return df
+
+
 
 def add_williams_fractals(df: pd.DataFrame, timeframe: str, n: int = 2) -> pd.DataFrame:
     """
@@ -173,19 +176,42 @@ def add_volatility_ratio(df: pd.DataFrame, short_lookback: int = 14, long_lookba
 
 def add_hmm_volatility_regime(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Simplified robust Volatility Regime detection (Replaces heavy ML HMM).
-    Calculates a Stochastic Oscillator of the ATR (0.0-1.0) to represent 
-    the probability of being in a "High Volatility" regime. Fast & causal.
+    Uses a true Machine Learning Hidden Markov Model (2 states) to calculate 
+    the probability of being in a High Volatility regime.
     """
-    if 'ATR' not in df.columns:
-        df = add_atr(df, lookback=14)
-            
-    rolling_min = df['ATR'].rolling(window=100).min()
-    rolling_max = df['ATR'].rolling(window=100).max()
+    if 'Log_Return' not in df.columns:
+        df['Log_Return'] = np.log(df['Close'] / df['Close'].shift(1))
         
-    # Scale current ATR between 0.0 and 1.0 relative to recent history
-    df['High_Vol_Prob'] = (df['ATR'] - rolling_min) / (rolling_max - rolling_min + 1e-9)
-    df['High_Vol_Prob'] = df['High_Vol_Prob'].fillna(0.0)
+    # We need clean data to train the model
+    train_data = df[['Log_Return']].dropna()
+    
+    # Reshape data for hmmlearn (requires 2D array)
+    X = train_data.values
+    
+    # Fit the 2-state Gaussian HMM
+    # n_iter=100 ensures the model converges to the best fit
+    model = GaussianHMM(n_components=2, covariance_type="diag", n_iter=100, random_state=42)
+    model.fit(X)
+    
+    # Predict the probability of being in each state
+    hidden_states_probs = model.predict_proba(X)
+    
+    # The model doesn't know which state is "High Vol" vs "Low Vol", it just knows they are different.
+    # We identify the High Vol state by finding which state has the higher variance in its covariance matrix.
+    var_state_0 = model.covars_[0][0]
+    var_state_1 = model.covars_[1][0]
+    
+    high_vol_state = 0 if var_state_0 > var_state_1 else 1
+    
+    # Extract just the probability of the High Volatility state
+    high_vol_probs = hidden_states_probs[:, high_vol_state]
+    
+    # Safely map the probabilities back to the main DataFrame matching the exact dates
+    df['High_Vol_Prob'] = np.nan
+    df.loc[train_data.index, 'High_Vol_Prob'] = high_vol_probs
+    
+    # Forward fill any tiny gaps and fill initial NaNs with 0
+    df['High_Vol_Prob'] = df['High_Vol_Prob'].ffill().fillna(0)
     
     return df
 
@@ -285,14 +311,10 @@ def add_volume_profile_features(df, session_start="00:00", session_end="08:00", 
         
         # Check if the current price is inside an identified Low Volume Node (Void)
         # We check if the Close is within any of the LVN price ranges
-        valid_indices = df.index.intersection(day_indices)
         for lvn_p in lvn_bins:
-            is_in_void = (df.loc[valid_indices, 'Close'] >= lvn_p) & \
-                         (df.loc[valid_indices, 'Close'] < lvn_p + bin_width)
-            
-            # Используем .loc только для существующих в маске индексов
-            if not is_in_void.empty:
-                df.loc[valid_indices[is_in_void], 'In_Liquidity_Void'] = 1
+            is_in_void = (df.loc[day_indices, 'Close'] >= lvn_p) & \
+                         (df.loc[day_indices, 'Close'] < lvn_p + bin_width)
+            df.loc[day_indices[is_in_void], 'In_Liquidity_Void'] = 1
 
     # Cleanup temporary columns
     df.drop(columns=['is_session', 'date_group'], inplace=True)
