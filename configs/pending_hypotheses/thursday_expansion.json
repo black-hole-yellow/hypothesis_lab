@@ -1,0 +1,40 @@
+{
+    "metadata": {
+        "hypothesis_id": "H_040_THURSDAY_EXPANSION",
+        "name": "Thursday Trend Expansion (London Open)",
+        "author": "Quant_Lab_Alpha",
+        "rationale": "Микроструктура недели. Если с понедельника по среду на рынке сформировался направленный дисбаланс (> 0.5 ATR), четверг обычно выступает днем расширения этого тренда (Trend Expansion). Мы входим по направлению недели на открытии Лондонской сессии."
+    },
+    "universe": {
+        "instruments": [
+            "GBPUSD"
+        ],
+        "resolution": "1h",
+        "timezone": "UTC"
+    },
+    "parameters": {},
+    "logic": {
+        "filters": [],
+        "entry_rules": {
+            "long_trigger": [
+                {
+                    "feature": "Thursday_Trend_Long",
+                    "operator": ">",
+                    "value": 0
+                }
+            ],
+            "short_trigger": [
+                {
+                    "feature": "Thursday_Trend_Short",
+                    "operator": ">",
+                    "value": 0
+                }
+            ]
+        }
+    },
+    "execution": {
+        "max_hold_bars": 8,
+        "max_trades_per_day": 1,
+        "allow_signal_exit": false
+    }
+}

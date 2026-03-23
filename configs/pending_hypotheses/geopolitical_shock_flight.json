@@ -1,0 +1,35 @@
+{
+    "metadata": {
+        "hypothesis_id": "H_019_GEO_SHOCK_FLIGHT_TO_USD",
+        "name": "Geopolitical Shock USD Flight",
+        "author": "Quant_Lab_Alpha",
+        "rationale": "При внезапном макроэкономическом/геополитическом шоке капитал мгновенно бежит в safe-haven (USD), вызывая резкое падение GBP/USD вне зависимости от технического тренда."
+    },
+    "universe": {
+        "instruments": [
+            "GBPUSD"
+        ],
+        "resolution": "1h",
+        "timezone": "UTC"
+    },
+    "parameters": {},
+    "logic": {
+        "filters": [],
+        "entry_rules": {
+            "long_trigger": [],
+            "short_trigger": [
+                {
+                    "comment": "Сработал триггер геополитического шока. Шортим немедленно.",
+                    "feature": "Geo_Shock_Short",
+                    "operator": ">",
+                    "value": 0
+                }
+            ]
+        }
+    },
+    "execution": {
+        "max_hold_bars": 8,
+        "max_trades_per_day": 1,
+        "allow_signal_exit": false
+    }
+}

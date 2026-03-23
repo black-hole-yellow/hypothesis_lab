@@ -1,0 +1,62 @@
+{
+    "metadata": {
+        "hypothesis_id": "H_006_ASIAN_SWEEP_FVG",
+        "name": "Asian Killzone Sweep to 4H FVG (RELAXED)",
+        "author": "Quant_Lab_Alpha",
+        "rationale": "Identifies when price sweeps the Asian High/Low to grab liquidity, perfectly tapping a resting 4H FVG before printing an immediate order flow reversal."
+    },
+    "universe": {
+        "instruments": [
+            "GBPUSD"
+        ],
+        "resolution": "1h",
+        "timezone": "UTC"
+    },
+    "parameters": {},
+    "logic": {
+        "filters": [],
+        "entry_rules": {
+            "long_trigger": [
+                {
+                    "feature": "Swept_AL_Into_FVG",
+                    "operator": "==",
+                    "value": 1
+                },
+                {
+                    "feature": "1h_Bullish_Flip",
+                    "operator": "==",
+                    "value": 1
+                },
+                {
+                    "comment": "Auto-migrated HTF Trend Guard",
+                    "feature": "HTF_Bullish_Prob",
+                    "operator": ">=",
+                    "value": 55
+                }
+            ],
+            "short_trigger": [
+                {
+                    "feature": "Swept_AH_Into_FVG",
+                    "operator": "==",
+                    "value": 1
+                },
+                {
+                    "feature": "1h_Bearish_Flip",
+                    "operator": "==",
+                    "value": 1
+                },
+                {
+                    "comment": "Auto-migrated HTF Trend Guard",
+                    "feature": "HTF_Bullish_Prob",
+                    "operator": "<=",
+                    "value": 45
+                }
+            ]
+        }
+    },
+    "execution": {
+        "max_hold_bars": 8,
+        "max_trades_per_day": 1,
+        "allow_signal_exit": false
+    }
+}

@@ -1,0 +1,35 @@
+{
+    "metadata": {
+        "hypothesis_id": "H_033_CPI_DIVERGENCE",
+        "name": "UK-US CPI Divergence (Bullish 1D Trend)",
+        "author": "Quant_Lab_Alpha",
+        "rationale": "Торговля макро-спреда. Если инфляция в Британии выходит хуже ожиданий (Hot), а в США показывает замедление (Cold), это создает асимметрию в будущих ставках Центробанков. GBP/USD должен формировать устойчивый бычий тренд на горизонте 1 недели, игнорируя краткосрочный шум."
+    },
+    "universe": {
+        "instruments": [
+            "GBPUSD"
+        ],
+        "resolution": "1h",
+        "timezone": "UTC"
+    },
+    "parameters": {},
+    "logic": {
+        "filters": [],
+        "entry_rules": {
+            "long_trigger": [
+                {
+                    "comment": "Подтверждено: UK CPI Hot + US CPI Cold. Входим в структурный лонг.",
+                    "feature": "Macro_CPI_Div_Long",
+                    "operator": ">",
+                    "value": 0
+                }
+            ],
+            "short_trigger": []
+        }
+    },
+    "execution": {
+        "max_hold_bars": 8,
+        "max_trades_per_day": 1,
+        "allow_signal_exit": false
+    }
+}

@@ -4,7 +4,12 @@ import pandas as pd
 class BaseHypothesis(ABC):
     def __init__(self, name: str, config: dict = None):
         self.name = name
-        self.config = config or {}  # Stores the full JSON dictionary
+        self.config = config or {}
+        self.triggers = []
+        self.daily_logs = []
+
+    def reset(self):
+        """Wipes the state clean for a fresh backtest run."""
         self.triggers = []
         self.daily_logs = []
 

@@ -1,0 +1,42 @@
+{
+    "metadata": {
+        "hypothesis_id": "H_031_CB_DIVERGENCE",
+        "name": "Central Bank Rate Divergence (Fed vs BoE)",
+        "author": "Quant_Lab_Alpha",
+        "rationale": "Торговля дифференциала ставок. Если рынок прайсит снижение ставки ФРС (Dovish), а Банк Англии переходит к повышению или удержанию (Hawkish), возникает мощный макро-попутный ветер для GBP/USD."
+    },
+    "universe": {
+        "instruments": [
+            "GBPUSD"
+        ],
+        "resolution": "1h",
+        "timezone": "UTC"
+    },
+    "parameters": {},
+    "logic": {
+        "filters": [],
+        "entry_rules": {
+            "long_trigger": [
+                {
+                    "comment": "BoE Hawkish + Fed Dovish. Лонг.",
+                    "feature": "CB_Divergence_Long",
+                    "operator": ">",
+                    "value": 0
+                }
+            ],
+            "short_trigger": [
+                {
+                    "comment": "BoE Dovish + Fed Hawkish. Шорт.",
+                    "feature": "CB_Divergence_Short",
+                    "operator": ">",
+                    "value": 0
+                }
+            ]
+        }
+    },
+    "execution": {
+        "max_hold_bars": 8,
+        "max_trades_per_day": 1,
+        "allow_signal_exit": false
+    }
+}

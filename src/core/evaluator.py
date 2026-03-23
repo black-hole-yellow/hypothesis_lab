@@ -1,36 +1,66 @@
+import os
 import pandas as pd
 import numpy as np
 
 class SignalEvaluator:
-    def __init__(self, df: pd.DataFrame, triggers: list, hypothesis_name: str, target_col: str = 'Close'):
-        self.df = df
-        self.triggers = triggers
-        self.hypothesis_name = hypothesis_name
+    def __init__(self, hypothesis: object):
+        self.hypothesis_name = hypothesis.name
+        self.triggers = hypothesis.triggers
+        self.daily_logs = hypothesis.daily_logs
+
+    def _export_audit_log(self):
+        """Generates the standardized CSV for review."""
+        if not self.daily_logs:
+            return
+            
+        os.makedirs("output", exist_ok=True)
+        safe_name = self.hypothesis_name.replace('/', '_').replace('\\', '_')
+        audit_filename = f"output/{safe_name}_audit_log.csv"
+        
+        # Inject outcomes into the daily logs before saving
+        for i, log in enumerate(self.daily_logs):
+            if i < len(self.triggers):
+                log['Outcome'] = self.triggers[i].get('Outcome', 'Unknown')
+                log['Hold_Bars'] = self.triggers[i].get('Hold_Bars', 0)
+                
+        pd.DataFrame(self.daily_logs).to_csv(audit_filename, index=False)
+        return audit_filename
 
     def calculate_metrics(self) -> dict:
-        # Считаем только закрытые сделки
+        """Calculates statistical edge based on directional accuracy over time."""
+        # Only evaluate closed trades
         completed = [t for t in self.triggers if t.get('Outcome') in ['Win', 'Loss']]
         freq = len(completed)
         
-        if freq == 0: # Порог значимости отключен для макро; проверяется в batch_runner
-            return {'Hypothesis': self.hypothesis_name, 'Status': 'FAILED (Not enough data)', 'Frequency': freq}
+        # Save the audit log regardless of outcome
+        self._export_audit_log()
+        
+        if freq < 10:
+            # Not enough sample size for standard statistics, flag for manual review
+            return {
+                'Hypothesis': self.hypothesis_name, 
+                'Status': 'REVIEW (Low Sample Size)', 
+                'Frequency': freq
+            }
 
         wins = sum(1 for t in completed if t['Outcome'] == 'Win')
         win_rate = wins / freq
         
-        # Expectancy: (WR * 2) - ((1-WR) * 1)
-        ev_r = (win_rate * 2.0) - ((1 - win_rate) * 1.0)
-        
-        # T-Stat для R-multiples
-        e_x2 = (win_rate * 4.0) + ((1 - win_rate) * 1.0)
-        std_dev = np.sqrt(e_x2 - (ev_r ** 2)) if (e_x2 - (ev_r ** 2)) > 0 else 1e-8
-        t_stat = (ev_r / std_dev) * np.sqrt(freq)
+        # Binomial Test vs 50% Null Hypothesis
+        # Standard Error of proportion = sqrt( (p * (1-p)) / N ) 
+        # For null hypothesis p = 0.5, variance is 0.25
+        standard_error = np.sqrt(0.25 / freq)
+        t_stat = (win_rate - 0.5) / standard_error if standard_error > 0 else 0
+
+        # Pass criteria: T-Stat >= 2.0 (approx 95% confidence) AND Win Rate > 50%
+        passed = t_stat >= 2.0 and win_rate > 0.5
 
         return {
             'Hypothesis': self.hypothesis_name,
             'Frequency': freq,
             'Win_Rate_%': round(win_rate * 100, 2),
-            'Expectancy_R': round(ev_r, 4),
+            'Wins': wins,
+            'Losses': freq - wins,
             'T_Stat': round(t_stat, 2),
-            'Status': 'PASSED' if (t_stat >= 2.0 and ev_r > 0) else 'FAILED'
+            'Status': 'PASSED' if passed else 'FAILED'
         }

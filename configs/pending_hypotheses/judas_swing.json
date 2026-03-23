@@ -1,0 +1,40 @@
+{
+    "metadata": {
+        "hypothesis_id": "H_047_JUDAS_SWING",
+        "name": "The Judas Swing (Price-Based 1:2 RR)",
+        "author": "Quant_Lab_Alpha",
+        "rationale": "Торговля ложного пробоя Азиатской сессии с жестким риск-менеджментом. Стоп-лосс ставится за экстремум лондонской манипуляции, Тейк-профит автоматически рассчитывается как 2R."
+    },
+    "universe": {
+        "instruments": [
+            "GBPUSD"
+        ],
+        "resolution": "1h",
+        "timezone": "UTC"
+    },
+    "parameters": {},
+    "logic": {
+        "filters": [],
+        "entry_rules": {
+            "long_trigger": [
+                {
+                    "feature": "Judas_Long",
+                    "operator": ">",
+                    "value": 0
+                }
+            ],
+            "short_trigger": [
+                {
+                    "feature": "Judas_Short",
+                    "operator": ">",
+                    "value": 0
+                }
+            ]
+        }
+    },
+    "execution": {
+        "max_hold_bars": 8,
+        "max_trades_per_day": 1,
+        "allow_signal_exit": false
+    }
+}

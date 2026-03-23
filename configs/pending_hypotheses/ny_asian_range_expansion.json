@@ -1,0 +1,54 @@
+{
+    "metadata": {
+        "hypothesis_id": "H_008_NY_ASIA_EXP",
+        "name": "NY Session Asian Range Expansion (RELAXED)",
+        "author": "Quant_Lab_Alpha",
+        "rationale": "Tests if price sweeping the Asian High/Low after opening NY inside the range provides a high-probability reversal entry."
+    },
+    "universe": {
+        "instruments": [
+            "GBPUSD"
+        ],
+        "resolution": "1h",
+        "timezone": "UTC"
+    },
+    "parameters": {},
+    "logic": {
+        "filters": [],
+        "entry_rules": {
+            "long_trigger": [
+                {
+                    "comment": "Price sweeps the Asian Low during NY",
+                    "feature": "NY_Sweep_Asia_Low",
+                    "operator": "==",
+                    "value": 1
+                },
+                {
+                    "comment": "Auto-migrated HTF Trend Guard",
+                    "feature": "HTF_Bullish_Prob",
+                    "operator": ">=",
+                    "value": 55
+                }
+            ],
+            "short_trigger": [
+                {
+                    "comment": "Price sweeps the Asian High during NY",
+                    "feature": "NY_Sweep_Asia_High",
+                    "operator": "==",
+                    "value": 1
+                },
+                {
+                    "comment": "Auto-migrated HTF Trend Guard",
+                    "feature": "HTF_Bullish_Prob",
+                    "operator": "<=",
+                    "value": 45
+                }
+            ]
+        }
+    },
+    "execution": {
+        "max_hold_bars": 8,
+        "max_trades_per_day": 1,
+        "allow_signal_exit": false
+    }
+}

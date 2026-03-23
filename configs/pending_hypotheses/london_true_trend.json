@@ -1,0 +1,40 @@
+{
+    "metadata": {
+        "hypothesis_id": "H_045_LONDON_TRUE_TREND",
+        "name": "London True Trend (10:00 AM Post-Shakeout)",
+        "author": "Quant_Lab_Alpha",
+        "rationale": "Микроструктура сессий. Первые 2 часа Лондона (08:00-10:00 UTC) часто сопровождаются охотой за стопами и ложными пробоями Азиатских диапазонов. К 10:00 UTC смарт-мани определяют истинный вектор дня. Мы входим по направлению утреннего вектора в 10:00 и удерживаем позицию до Лондонского Фиксинга (16:00)."
+    },
+    "universe": {
+        "instruments": [
+            "GBPUSD"
+        ],
+        "resolution": "1h",
+        "timezone": "UTC"
+    },
+    "parameters": {},
+    "logic": {
+        "filters": [],
+        "entry_rules": {
+            "long_trigger": [
+                {
+                    "feature": "LO_True_Trend_Long",
+                    "operator": ">",
+                    "value": 0
+                }
+            ],
+            "short_trigger": [
+                {
+                    "feature": "LO_True_Trend_Short",
+                    "operator": ">",
+                    "value": 0
+                }
+            ]
+        }
+    },
+    "execution": {
+        "max_hold_bars": 8,
+        "max_trades_per_day": 1,
+        "allow_signal_exit": false
+    }
+}

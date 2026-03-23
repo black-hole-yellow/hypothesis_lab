@@ -1,0 +1,42 @@
+{
+    "metadata": {
+        "hypothesis_id": "H_036_FRIDAY_REVERSAL",
+        "name": "Friday Institutional Profit Taking (> 2 ATR)",
+        "author": "Quant_Lab_Alpha",
+        "rationale": "Микроструктура рынка. Если за неделю актив прошел экстремальное расстояние (более 2-х средних дневных диапазонов), к закрытию пятницы (после 16:00 UTC) крупные игроки будут принудительно фиксировать прибыль перед выходными, создавая краткосрочный разворотный импульс к среднему."
+    },
+    "universe": {
+        "instruments": [
+            "GBPUSD"
+        ],
+        "resolution": "1h",
+        "timezone": "UTC"
+    },
+    "parameters": {},
+    "logic": {
+        "filters": [],
+        "entry_rules": {
+            "long_trigger": [
+                {
+                    "comment": "Экстремальное падение за неделю. Лонг на фиксации шортов.",
+                    "feature": "Friday_Reversal_Long",
+                    "operator": ">",
+                    "value": 0
+                }
+            ],
+            "short_trigger": [
+                {
+                    "comment": "Экстремальный рост за неделю. Шорт на фиксации лонгов.",
+                    "feature": "Friday_Reversal_Short",
+                    "operator": ">",
+                    "value": 0
+                }
+            ]
+        }
+    },
+    "execution": {
+        "max_hold_bars": 8,
+        "max_trades_per_day": 1,
+        "allow_signal_exit": false
+    }
+}

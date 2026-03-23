@@ -1,0 +1,35 @@
+{
+    "metadata": {
+        "hypothesis_id": "H_032_FOMC_SELL_NEWS",
+        "name": "FOMC 'Sell the News' (In-Line Hike Fade)",
+        "author": "Quant_Lab_Alpha",
+        "rationale": "Если ФРС повышает ставку без сюрпризов (полностью в рамках консенсуса), драйверов для дальнейшего роста доллара не остается. Спекулянты, покупавшие USD на 'слухах', фиксируют прибыль, вызывая ралли GBP/USD."
+    },
+    "universe": {
+        "instruments": [
+            "GBPUSD"
+        ],
+        "resolution": "1h",
+        "timezone": "UTC"
+    },
+    "parameters": {},
+    "logic": {
+        "filters": [],
+        "entry_rules": {
+            "long_trigger": [
+                {
+                    "comment": "Ожидаемое повышение ставки ФРС. Фиксация прибыли по USD. Лонг GBP/USD.",
+                    "feature": "FOMC_Sell_News_Long",
+                    "operator": ">",
+                    "value": 0
+                }
+            ],
+            "short_trigger": []
+        }
+    },
+    "execution": {
+        "max_hold_bars": 8,
+        "max_trades_per_day": 1,
+        "allow_signal_exit": false
+    }
+}

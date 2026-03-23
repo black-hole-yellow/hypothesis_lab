@@ -1,0 +1,54 @@
+{
+    "metadata": {
+        "hypothesis_id": "H_018_WEEKLY_LEVEL_CONTINUATION",
+        "name": "Weekly Level Trend Continuation",
+        "author": "Quant_Lab_Alpha",
+        "rationale": "Тестирует контртрендовые откаты к уровням прошлой недели (PWL/PWH). Если цена формирует там фрактал, а глобальный тренд указывает в противоположную сторону, мы заходим на продолжение макро-тренда."
+    },
+    "universe": {
+        "instruments": [
+            "GBPUSD"
+        ],
+        "resolution": "1h",
+        "timezone": "UTC"
+    },
+    "parameters": {},
+    "logic": {
+        "filters": [],
+        "entry_rules": {
+            "long_trigger": [
+                {
+                    "comment": "Цена упала к PWL и сформировала фрактал. Глобальный тренд бычий (проверяется Ассасином). Покупаем.",
+                    "feature": "First_1W_Rej_Long",
+                    "operator": "==",
+                    "value": 1
+                },
+                {
+                    "comment": "Auto-migrated HTF Trend Guard",
+                    "feature": "HTF_Bullish_Prob",
+                    "operator": ">=",
+                    "value": 55
+                }
+            ],
+            "short_trigger": [
+                {
+                    "comment": "Цена выросла к PWH и сформировала фрактал. Глобальный тренд медвежий (проверяется Ассасином). Продаем.",
+                    "feature": "First_1W_Rej_Short",
+                    "operator": "==",
+                    "value": 1
+                },
+                {
+                    "comment": "Auto-migrated HTF Trend Guard",
+                    "feature": "HTF_Bullish_Prob",
+                    "operator": "<=",
+                    "value": 45
+                }
+            ]
+        }
+    },
+    "execution": {
+        "max_hold_bars": 8,
+        "max_trades_per_day": 1,
+        "allow_signal_exit": false
+    }
+}

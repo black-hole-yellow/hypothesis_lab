@@ -2,8 +2,10 @@ import os
 import json
 import shutil
 import glob
-import pandas as pd
-from sklearn import metrics 
+import sys
+from pathlib import Path
+# Force Python to recognize the project root
+sys.path.append(str(Path(__file__).resolve().parent))
 
 from src.core.engine import LabEngine
 from src.hypotheses.generic_json_hypothesis import GenericJSONHypothesis
@@ -17,9 +19,25 @@ REVIEW_DIR = "configs/review"
 for directory in [PENDING_DIR, PRODUCTION_DIR, REVIEW_DIR]:
     os.makedirs(directory, exist_ok=True)
 
+def extract_required_features(config: dict) -> list:
+    """Scans the strict schema JSON to find exactly which features to calculate."""
+    features = set()
+    logic = config.get("logic", {})
+    
+    # Scan filters
+    for f in logic.get("filters", []):
+        if "feature" in f: features.add(f["feature"])
+        
+    # Scan triggers
+    entry_rules = logic.get("entry_rules", {})
+    for rule in entry_rules.get("long_trigger", []) + entry_rules.get("short_trigger", []):
+        if "feature" in rule: features.add(rule["feature"])
+        
+    return list(features)
+
 def process_pending_hypotheses():
     print("=========================================")
-    print("      AUTOMATED QUANT PIPELINE v1.2      ")
+    print("      AUTOMATED QUANT PIPELINE v2.0      ")
     print("=========================================")
     
     pending_files = glob.glob(os.path.join(PENDING_DIR, "*.json"))
@@ -37,111 +55,56 @@ def process_pending_hypotheses():
         with open(file_path, "r") as f:
             config = json.load(f)
 
-        timeframe = config.get("universe", {}).get("resolution", "1h")
-        instruments = config.get("universe", {}).get("instruments", ["GBPUSD"])
-        symbol = instruments[0] if instruments else "GBPUSD"
+        # 1. Setup Data Paths
+        universe = config.get("universe", {})
+        timeframe = universe.get("resolution", "1h")
+        symbol = universe.get("instruments", ["GBPUSD"])[0]
         processed_data_path = f"data/processed/{symbol}_{timeframe}.parquet"
 
         if not os.path.exists(processed_data_path):
-            print(f"❌ Missing processed data: {processed_data_path}")
+            print(f"❌ Missing data: {processed_data_path}. Moving to REVIEW.")
             shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
-            continue
+            # Fail fast
+            break
 
+        # 2. Initialize Engine
         engine = LabEngine(
             data_file=processed_data_path,
-            start_date="2020-01-01",
+            start_date="2018-01-01",
             end_date="2026-02-27",
             timeframe=timeframe
         )
 
-        # Load the data into memory
-        if not engine.prepare_data():
+        # 3. Dynamic Feature Loading
+        required_features = extract_required_features(config)
+        if not engine.prepare_data(required_features):
             shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
-            continue
+            break
 
+        # 4. Run Strategy
         hypothesis = GenericJSONHypothesis(config=config)
         engine.run_hypothesis(hypothesis)
 
-        if len(hypothesis.triggers) == 0:
-            print("⚠️ No trades triggered. Moving to REVIEW.")
-            shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
-            continue
-
-        target_metric = config.get("logic", {}).get("evaluation_metric", "Close")
-        evaluator = SignalEvaluator(engine.df, hypothesis.triggers, hypothesis.name, target_col=target_metric)
+        # 5. Evaluate and Log
+        evaluator = SignalEvaluator(hypothesis)
         metrics = evaluator.calculate_metrics()
-        
-        if not metrics or 'Optimal_Hold_Hours' not in metrics:
-            print(f"⚠️  Hypothesis '{hypothesis.name}' generated 0 trades.")
-            print("   (Check your logic for 'Geometry Traps' or impossible conditions)")
-            shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
-            continue
 
-        h = metrics['Optimal_Hold_Hours']
-        win_rate = metrics.get(f'Hit_Ratio_{h}H', 0)
-        wins = metrics.get('Best_Win_Count', 0)
-        losses = metrics.get('Best_Loss_Count', 0)
-        t_stat = metrics.get(f'T_Stat_{h}H', 0.0)
-
-        # ==========================================================
-        #  NEW: INJECT WIN/LOSS OUTCOMES INTO THE CSV LOG
-        # ==========================================================
-        fwd_col = f'Fwd_Ret_{h}'
-        for i, trigger in enumerate(hypothesis.triggers):
-            dt = trigger['Datetime']
-            if dt in evaluator.df.index:
-                ret = evaluator.df.at[dt, fwd_col]
-                signal = evaluator.df.at[dt, 'Signal']
-                
-                if pd.isna(ret):
-                    # If the trade triggered on the very last day of data, 
-                    # there is no future data to check yet!
-                    outcome = "Pending"
-                else:
-                    # If signal matches the direction of the return, it's a win!
-                    outcome = "Win" if (signal * ret) > 0 else "Loss"
-            else:
-                outcome = "Unknown"
-                
-            # Remove old Status columns and add Outcome
-            hypothesis.daily_logs[i].pop('Status', None)
-            hypothesis.daily_logs[i].pop('Signal_Triggered', None)
-            hypothesis.daily_logs[i]['Outcome'] = outcome
-
-        # Save dynamic audit log named after the hypothesis
-        os.makedirs("output", exist_ok=True)
-        safe_name = hypothesis.name.replace('/', '_').replace('\\', '_')
-        audit_filename = f"output/{safe_name}_audit_log.csv"
-        pd.DataFrame(hypothesis.daily_logs).to_csv(audit_filename, index=False)
-        # ==========================================================
-
+        # 6. Tear Sheet
         print("=========================================")
-        print(f"  TEAR SHEET: {metrics['Hypothesis']}")
+        print(f"  TEAR SHEET: {metrics.get('Hypothesis', filename)}")
         print("=========================================")
-        print(f"  Frequency          : {metrics['Frequency']}")
-        print(f"  Win Rate (1:2 RR)  : {metrics.get('Win_Rate_%', 0)}% ({metrics.get('Wins', 0)}W / {metrics.get('Losses', 0)}L)")
-        print(f"  Expectancy (R)     : {metrics.get('Expectancy_R', 0)}")
-        print(f"  T-Stat             : {metrics.get('T_Stat', 0)}")
+        print(f"  Frequency   : {metrics.get('Frequency', 0)}")
+        print(f"  Win Rate    : {metrics.get('Win_Rate_%', 0)}% ({metrics.get('Wins', 0)}W / {metrics.get('Losses', 0)}L)")
+        print(f"  T-Stat      : {metrics.get('T_Stat', 0.0)}")
+        print(f"  Status      : {metrics.get('Status', 'ERROR')}")
         print("=========================================")
-        print(f"Status: {metrics['Status']}")
 
-        # Умная логика промоушена:
-        freq = metrics.get('Frequency', 0)
-        
-        # 1. Стандартное правило больших чисел (T-Stat >= 2.0)
-        statistically_significant = (t_stat >= 2.0)
-        
-        # 2. Исключение для Черных Лебедей (Макро-шоки, мало сделок, но высокий винрейт)
-        macro_exemption = (freq > 0) and (freq < 15) and (win_rate >= 70.0)
-
-        if statistically_significant or macro_exemption:
-            if macro_exemption:
-                print("✅ PASSED (MACRO EXEMPTION): Promoted to PRODUCTION.")
-            else:
-                print("✅ PASSED (STATISTICAL EDGE): Promoted to PRODUCTION.")
+        # 7. Routing
+        if metrics.get('Status') == 'PASSED':
+            print("✅ PASSED: Promoted to PRODUCTION.\n")
             shutil.move(file_path, os.path.join(PRODUCTION_DIR, filename))
         else:
-            print("❌ FAILED: Moved to REVIEW.")
+            print("❌ FAILED: Moved to REVIEW.\n")
             shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
 
 if __name__ == "__main__":

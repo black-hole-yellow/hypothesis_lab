@@ -1,0 +1,54 @@
+{
+    "metadata": {
+        "hypothesis_id": "H_017_LDN_ASIA_FVG_PROTECTION",
+        "name": "London Asia Protected Continuation",
+        "author": "Quant_Lab_Alpha",
+        "rationale": "Проверяет гипотезу: если азиатский экстремум сформирован внутри 4H FVG, он защищен. Лондон не будет делать свип, а сразу даст вход по тренду в 10:00."
+    },
+    "universe": {
+        "instruments": [
+            "GBPUSD"
+        ],
+        "resolution": "1h",
+        "timezone": "UTC"
+    },
+    "parameters": {},
+    "logic": {
+        "filters": [],
+        "entry_rules": {
+            "long_trigger": [
+                {
+                    "comment": "Asia Low внутри бычьего 4H FVG. Заходим в Лонг на открытии Лондона.",
+                    "feature": "LDN_Protected_AL_Long",
+                    "operator": "==",
+                    "value": 1
+                },
+                {
+                    "comment": "Auto-migrated HTF Trend Guard",
+                    "feature": "HTF_Bullish_Prob",
+                    "operator": ">=",
+                    "value": 55
+                }
+            ],
+            "short_trigger": [
+                {
+                    "comment": "Asia High внутри медвежьего 4H FVG. Заходим в Шорт на открытии Лондона.",
+                    "feature": "LDN_Protected_AH_Short",
+                    "operator": "==",
+                    "value": 1
+                },
+                {
+                    "comment": "Auto-migrated HTF Trend Guard",
+                    "feature": "HTF_Bullish_Prob",
+                    "operator": "<=",
+                    "value": 45
+                }
+            ]
+        }
+    },
+    "execution": {
+        "max_hold_bars": 8,
+        "max_trades_per_day": 1,
+        "allow_signal_exit": false
+    }
+}

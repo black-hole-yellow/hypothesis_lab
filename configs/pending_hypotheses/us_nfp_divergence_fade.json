@@ -1,0 +1,42 @@
+{
+    "metadata": {
+        "hypothesis_id": "H_028_NFP_DIVERGENCE",
+        "name": "US NFP Divergence Fade (Mixed Report)",
+        "author": "Quant_Lab_Alpha",
+        "rationale": "Входим только при подтверждении разворота: если свеча подтверждения (T+1) закрылась в противоположную сторону от импульса релиза (T=0). Это доказывает наличие институционального поглощения ликвидности."
+    },
+    "universe": {
+        "instruments": [
+            "GBPUSD"
+        ],
+        "resolution": "1h",
+        "timezone": "UTC"
+    },
+    "parameters": {},
+    "logic": {
+        "filters": [],
+        "entry_rules": {
+            "long_trigger": [
+                {
+                    "comment": "1H свеча релиза была красной (USD купили алгоритмы). Покупаем GBP/USD в расчете на поглощение.",
+                    "feature": "NFP_Fade_Long",
+                    "operator": ">",
+                    "value": 0
+                }
+            ],
+            "short_trigger": [
+                {
+                    "comment": "1H свеча релиза была зеленой. Продаем в расчете на поглощение.",
+                    "feature": "NFP_Fade_Short",
+                    "operator": ">",
+                    "value": 0
+                }
+            ]
+        }
+    },
+    "execution": {
+        "max_hold_bars": 8,
+        "max_trades_per_day": 1,
+        "allow_signal_exit": false
+    }
+}

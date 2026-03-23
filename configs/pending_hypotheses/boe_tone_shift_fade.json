@@ -1,0 +1,35 @@
+{
+    "metadata": {
+        "hypothesis_id": "H_026_BOE_TONE_SHIFT",
+        "name": "BoE Press Conference Tone Shift (Fade)",
+        "author": "Quant_Lab_Alpha",
+        "rationale": "Использует паттерн Price Action как прокси для NLP. Если 'ястребиный' релиз вызывает рост на первой свече (T=0), но свеча пресс-конференции Губернатора (T+1) закрывается медвежьей, это означает 'голубиный' Tone Shift. Институционалы распродают первоначальный импульс до конца дня."
+    },
+    "universe": {
+        "instruments": [
+            "GBPUSD"
+        ],
+        "resolution": "1h",
+        "timezone": "UTC"
+    },
+    "parameters": {},
+    "logic": {
+        "filters": [],
+        "entry_rules": {
+            "long_trigger": [],
+            "short_trigger": [
+                {
+                    "comment": "Стейтмент был выкуплен (Зеленая T=0), но пресс-конференция красная (T=1). Шортим ралли.",
+                    "feature": "BoE_Tone_Shift_Short",
+                    "operator": ">",
+                    "value": 0
+                }
+            ]
+        }
+    },
+    "execution": {
+        "max_hold_bars": 8,
+        "max_trades_per_day": 1,
+        "allow_signal_exit": false
+    }
+}

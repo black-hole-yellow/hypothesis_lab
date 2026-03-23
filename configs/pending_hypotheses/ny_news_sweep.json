@@ -1,0 +1,52 @@
+{
+    "metadata": {
+        "hypothesis_id": "H_049_NY_NEWS_SWEEP",
+        "name": "NY News Sweep (London Box Fakeout)",
+        "author": "Quant_Lab_Alpha",
+        "rationale": "Охота за ликвидностью Лондона. В период 15:00-17:00 (выход новостей США) цена сбивает экстремум лондонской сессии и разворачивается обратно. Жесткий 1:2 RR, без пятниц и декабря."
+    },
+    "universe": {
+        "instruments": [
+            "GBPUSD"
+        ],
+        "resolution": "1h",
+        "timezone": "UTC"
+    },
+    "parameters": {},
+    "logic": {
+        "filters": [],
+        "entry_rules": {
+            "long_trigger": [
+                {
+                    "feature": "NY_Sweep_Long",
+                    "operator": ">",
+                    "value": 0
+                },
+                {
+                    "comment": "Auto-migrated HTF Trend Guard",
+                    "feature": "HTF_Bullish_Prob",
+                    "operator": ">=",
+                    "value": 55
+                }
+            ],
+            "short_trigger": [
+                {
+                    "feature": "NY_Sweep_Short",
+                    "operator": ">",
+                    "value": 0
+                },
+                {
+                    "comment": "Auto-migrated HTF Trend Guard",
+                    "feature": "HTF_Bullish_Prob",
+                    "operator": "<=",
+                    "value": 45
+                }
+            ]
+        }
+    },
+    "execution": {
+        "max_hold_bars": 8,
+        "max_trades_per_day": 1,
+        "allow_signal_exit": false
+    }
+}
