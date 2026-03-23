@@ -49,7 +49,7 @@ def process_pending_hypotheses():
 
         engine = LabEngine(
             data_file=processed_data_path,
-            start_date="2000-01-01",
+            start_date="2008-01-01",
             end_date="2026-02-27",
             timeframe=timeframe
         )
@@ -75,7 +75,7 @@ def process_pending_hypotheses():
         evaluator = SignalEvaluator(engine.df, hypothesis.triggers, hypothesis.name, target_col=target_metric)
         metrics = evaluator.calculate_metrics()
         
-        if not metrics or metrics.get('Status') == 'FAILED (Not enough data)':
+        if not metrics or metrics.get('Frequency', 0) == 0:
             print(f"⚠️  Hypothesis '{hypothesis.name}' generated 0 trades or insufficient data.")
             shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
             continue
@@ -86,32 +86,41 @@ def process_pending_hypotheses():
         for i, trigger in enumerate(hypothesis.triggers):
             outcome = trigger.get('Outcome', 'Pending')
             
-            # Синхронизируем лог с результатами симуляции
             hypothesis.daily_logs[i]['Outcome'] = outcome
             hypothesis.daily_logs[i]['Entry'] = round(trigger.get('Entry_Price', 0), 5)
+            # Add the exact Exit Price and Exit Time to the CSV log
+            hypothesis.daily_logs[i]['Exit_Price'] = round(trigger.get('Exit_Price', 0), 5) 
             hypothesis.daily_logs[i]['SL'] = round(trigger.get('SL_Price', 0), 5)
             hypothesis.daily_logs[i]['TP'] = round(trigger.get('TP_Price', 0), 5)
+            hypothesis.daily_logs[i]['Exit_Time'] = trigger.get('Exit_Time', '')
 
         # Сохраняем аудит
         os.makedirs("output", exist_ok=True)
         safe_name = hypothesis.name.replace('/', '_').replace('\\', '_')
         pd.DataFrame(hypothesis.daily_logs).to_csv(f"output/{safe_name}_audit_log.csv", index=False)
         
-        # Fallbacks for safety if evaluator doesn't pass these yet
-        profit_factor = metrics.get('Profit_Factor', 0)
-        sqn = metrics.get('SQN', 0)
-        
         print("=========================================================")
         print(f" 📊 STRATEGY TEAR SHEET: {metrics['Hypothesis']}")
         print("=========================================================")
-        print(f"  Sample Size (N)   : {metrics['Frequency']}")
-        print(f"  Expectancy (R)    : {metrics['Expectancy_R']} R")
-        print(f"  Profit Factor     : {metrics['Profit_Factor']}")
-        print(f"  SQN (Consistency) : {metrics['SQN']}")
+        print(f"  Frequency (N)     : {metrics['Frequency']}")
+        print(f"  Win Rate          : {metrics['Win_Rate_%']}%")
+        print(f"  T-Stat            : {metrics['T_Stat']}")
+        print(f"  Status            : {metrics['Status']}")
         print("=========================================================")
         
+        # Determine if Hypothesis is Macro-based
+        is_macro = str(config.get("metadata", {}).get("category", "")).lower() == "macro"
+        if not is_macro:
+            for feat in required_features:
+                if any(k in feat.lower() for k in ['macro', 'cpi', 'nfp', 'boe', 'fomc', 'shock', 'election', 'unemp', 'retail', 'sovereign']):
+                    is_macro = True
+                    break
+
         # Stricter Promotion Criteria
-        if metrics['Status'] == 'PASSED' and metrics['Frequency'] >= 10:
+        if is_macro and metrics.get('Win_Rate_%', 0) > 52.0 and metrics.get('Frequency', 0) > 0:
+            print("✅ MACRO PASSED: Win Rate > 52%. Promoted to PRODUCTION.")
+            shutil.move(file_path, os.path.join(PRODUCTION_DIR, filename))
+        elif metrics['Status'] == 'PASSED' and metrics['Frequency'] >= 10:
             print("✅ PASSED: Promoted to PRODUCTION.")
             shutil.move(file_path, os.path.join(PRODUCTION_DIR, filename))
         elif metrics['Status'] == 'PASSED' and metrics['Frequency'] < 10:

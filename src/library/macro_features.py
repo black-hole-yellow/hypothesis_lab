@@ -23,35 +23,37 @@ def _get_event_dates(events, keywords: list) -> list:
 
     events_list = []
     
-    # 1. BULLETPROOF ABSOLUTE PATH
-    # Computes exact path: src/library -> src -> hypothesis_lab -> data/macro_events.json
-    current_dir = Path(__file__).parent
-    project_root = current_dir.parent.parent
-    file_path = project_root / 'data' / 'macro_events.json'
-    
-    if file_path.exists():
-        with open(file_path, 'r', encoding='utf-8') as f:
-            raw_json = json.load(f)
-            for cat, evt_list in raw_json.items():
+    # 1. Умная загрузка из переданного events (dict или list)
+    if isinstance(events, dict):
+        for cat, evt_list in events.items():
+            if isinstance(evt_list, list):
                 for e in evt_list:
                     if isinstance(e, dict):
                         e['Category'] = cat
                         events_list.append(e)
+    elif isinstance(events, list):
+        for e in events:
+            if isinstance(e, dict):
+                events_list.append(e)
     else:
-        # 2. BULLETPROOF DATAFRAME UNWRAP (If file mysteriously vanishes)
-        print(f"⚠️ Warning: Could not find {file_path}. Using DataFrame fallback.")
-        if isinstance(events, pd.DataFrame):
-            for col in events.columns:
-                for item in events[col].dropna():
-                    if isinstance(item, dict):
-                        item['Category'] = col
-                        events_list.append(item)
-        elif isinstance(events, dict):
-            for cat, evt_list in events.items():
-                for e in evt_list:
-                    if isinstance(e, dict):
-                        e['Category'] = cat
-                        events_list.append(e)
+        # 2. Фолбэк на абсолютный путь
+        current_dir = Path(__file__).parent
+        project_root = current_dir.parent.parent
+        file_path = project_root / 'data' / 'macro_events.json'
+        if file_path.exists():
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    raw_json = json.load(f)
+                    if isinstance(raw_json, dict):
+                        for cat, evt_list in raw_json.items():
+                            for e in evt_list:
+                                if isinstance(e, dict):
+                                    e['Category'] = cat
+                                    events_list.append(e)
+                    elif isinstance(raw_json, list):
+                        events_list = [e for e in raw_json if isinstance(e, dict)]
+            except Exception as e:
+                print(f"⚠️ Warning: Could not parse {file_path}. {e}")
 
     dates = set()
     for e in events_list:
@@ -252,8 +254,13 @@ def add_geopolitical_shock_context(df: pd.DataFrame, events: list = None) -> pd.
     df['Z_Vol'] = (df['High'] - df['Low']).rolling(20).apply(lambda x: (x.iloc[-1] - x.mean()) / (x.std() + 1e-5))
     is_shock = df['Z_Vol'] > 3.0
     
-    df.loc[is_shock & (df['Close'] > df['Open']), 'Geo_Shock_Long'] = 1
-    df.loc[is_shock & (df['Close'] < df['Open']), 'Geo_Shock_Short'] = 1
+    shock_dates = _get_event_dates(events, ['shock', 'geopolitical', 'political', 'war'])
+    if shock_dates:
+        date_strs = [str(d) for d in shock_dates]
+        is_event_day = df.index.strftime('%Y-%m-%d').isin(date_strs)
+        df.loc[is_event_day & is_shock & (df['Close'] > df['Open']), 'Geo_Shock_Long'] = 1
+        df.loc[is_event_day & is_shock & (df['Close'] < df['Open']), 'Geo_Shock_Short'] = 1
+        
     df.drop(columns=['Z_Vol'], inplace=True)
     return df
 

@@ -176,6 +176,7 @@ class LabEngine:
                             trade['Outcome'] = 'Win' if close_price < trade['Entry_Price'] else 'Loss'
                         
                         trade['Status'], trade['Exit_Time'] = 'Closed', index
+                        trade['Exit_Price'] = close_price
                     else:
                         still_active.append(trade)
                         
@@ -185,16 +186,21 @@ class LabEngine:
                     if direction == 'Long':
                         if low <= trade['SL_Price']:
                             trade['Outcome'], trade['Status'], trade['Exit_Time'] = 'Loss', 'Closed', index
+                            trade['Exit_Price'] = trade['SL_Price']  # <-- ADD THIS
                             if trade.get('Datetime', index).date() == current_day: losses_today += 1
                         elif high >= trade['TP_Price']:
                             trade['Outcome'], trade['Status'], trade['Exit_Time'] = 'Win', 'Closed', index
+                            trade['Exit_Price'] = trade['TP_Price']  # <-- ADD THIS
                         else: still_active.append(trade)
+                        
                     elif direction == 'Short':
                         if high >= trade['SL_Price']:
                             trade['Outcome'], trade['Status'], trade['Exit_Time'] = 'Loss', 'Closed', index
+                            trade['Exit_Price'] = trade['SL_Price']  # <-- ADD THIS
                             if trade.get('Datetime', index).date() == current_day: losses_today += 1
                         elif low <= trade['TP_Price']:
                             trade['Outcome'], trade['Status'], trade['Exit_Time'] = 'Win', 'Closed', index
+                            trade['Exit_Price'] = trade['TP_Price']  # <-- ADD THIS
                         else: still_active.append(trade)
 
             active_trades = still_active
@@ -246,10 +252,10 @@ class LabEngine:
                             break
                     
                     if sl_price is None or pd.isna(sl_price):
-                        atr_dist = row.get('ATR_14D', 0.0020) * sl_atr_mult
+                        atr_dist = row.get('ATR', 0.0020) * sl_atr_mult
                         sl_price = (entry_price - atr_dist) if direction == 'Long' else (entry_price + atr_dist)
                     
-                    risk = max(abs(entry_price - sl_price), row.get('ATR_14D', 0.0020))
+                    risk = max(abs(entry_price - sl_price), row.get('ATR', 0.0020))
                     tp_price = (entry_price + (target_rr * risk)) if direction == 'Long' else (entry_price - (target_rr * risk))
                     
                     new_trade.update({
