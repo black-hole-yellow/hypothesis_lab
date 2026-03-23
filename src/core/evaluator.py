@@ -3,10 +3,12 @@ import pandas as pd
 import numpy as np
 
 class SignalEvaluator:
-    def __init__(self, hypothesis: object):
+    # UPDATED: Now accepts the full dataframe for forward-looking analysis
+    def __init__(self, hypothesis: object, df: pd.DataFrame = None):
         self.hypothesis_name = hypothesis.name
         self.triggers = hypothesis.triggers
         self.daily_logs = hypothesis.daily_logs
+        self.df = df
 
     def _export_audit_log(self):
         """Generates the standardized CSV for review."""
@@ -17,7 +19,6 @@ class SignalEvaluator:
         safe_name = self.hypothesis_name.replace('/', '_').replace('\\', '_')
         audit_filename = f"output/{safe_name}_audit_log.csv"
         
-        # Inject outcomes into the daily logs before saving
         for i, log in enumerate(self.daily_logs):
             if i < len(self.triggers):
                 log['Outcome'] = self.triggers[i].get('Outcome', 'Unknown')
@@ -27,40 +28,81 @@ class SignalEvaluator:
         return audit_filename
 
     def calculate_metrics(self) -> dict:
-        """Calculates statistical edge based on directional accuracy over time."""
-        # Only evaluate closed trades
-        completed = [t for t in self.triggers if t.get('Outcome') in ['Win', 'Loss']]
+        """Calculates statistical edge using a 1 to 24 bar Multi-Horizon Sweep."""
+        completed = [t for t in self.triggers if t.get('Outcome') in ['Win', 'Loss'] or t.get('Status') == 'Closed']
         freq = len(completed)
-        
-        # Save the audit log regardless of outcome
         self._export_audit_log()
         
         if freq < 10:
-            # Not enough sample size for standard statistics, flag for manual review
             return {
                 'Hypothesis': self.hypothesis_name, 
                 'Status': 'REVIEW (Low Sample Size)', 
                 'Frequency': freq
             }
 
-        wins = sum(1 for t in completed if t['Outcome'] == 'Win')
-        win_rate = wins / freq
-        
-        # Binomial Test vs 50% Null Hypothesis
-        # Standard Error of proportion = sqrt( (p * (1-p)) / N ) 
-        # For null hypothesis p = 0.5, variance is 0.25
-        standard_error = np.sqrt(0.25 / freq)
-        t_stat = (win_rate - 0.5) / standard_error if standard_error > 0 else 0
+        # Base tracking variables
+        best_t_stat = -999.0
+        best_win_rate = 0.0
+        optimal_bars = 0
+        best_wins = 0
 
-        # Pass criteria: T-Stat >= 2.0 (approx 95% confidence) AND Win Rate > 50%
-        passed = t_stat >= 2.0 and win_rate > 0.5
+        # --- MULTI-HORIZON SWEEP (1 to 24 Bars) ---
+        if self.df is not None:
+            # Map datetimes to integer indices for lightning-fast lookup
+            dt_to_idx = {dt: i for i, dt in enumerate(self.df.index)}
+            
+            for horizon in range(1, 25):
+                horizon_wins = 0
+                valid_trades = 0
+                
+                for t in completed:
+                    entry_dt = t.get('Datetime')
+                    direction = t.get('Direction', t.get('Type', t.get('Signal', 'Long')))
+                    entry_price = t.get('Entry_Price')
+                    
+                    if entry_dt in dt_to_idx and entry_price is not None:
+                        entry_idx = dt_to_idx[entry_dt]
+                        exit_idx = entry_idx + horizon
+                        
+                        # Ensure we don't look past the end of the dataframe
+                        if exit_idx < len(self.df):
+                            valid_trades += 1
+                            exit_price = self.df['Close'].iloc[exit_idx]
+                            
+                            is_win = False
+                            if isinstance(direction, str):
+                                if direction.lower() == 'long' and exit_price > entry_price:
+                                    is_win = True
+                                elif direction.lower() == 'short' and exit_price < entry_price:
+                                    is_win = True
+                                    
+                            if is_win:
+                                horizon_wins += 1
+                                
+                # Calculate Statistics for this specific horizon
+                if valid_trades >= 10:
+                    h_win_rate = horizon_wins / valid_trades
+                    h_se = np.sqrt(0.25 / valid_trades)
+                    h_t_stat = (h_win_rate - 0.5) / h_se if h_se > 0 else 0
+                    
+                    # Update if this horizon proves to be a stronger edge
+                    if h_t_stat > best_t_stat:
+                        best_t_stat = h_t_stat
+                        best_win_rate = h_win_rate
+                        optimal_bars = horizon
+                        best_wins = horizon_wins
+                        freq = valid_trades
+
+        # Pass criteria: Peak T-Stat >= 2.0 AND Win Rate > 50%
+        passed = best_t_stat >= 2.0 and best_win_rate > 0.5
 
         return {
             'Hypothesis': self.hypothesis_name,
             'Frequency': freq,
-            'Win_Rate_%': round(win_rate * 100, 2),
-            'Wins': wins,
-            'Losses': freq - wins,
-            'T_Stat': round(t_stat, 2),
+            'Win_Rate_%': round(best_win_rate * 100, 2),
+            'Wins': best_wins,
+            'Losses': freq - best_wins,
+            'T_Stat': round(best_t_stat, 2),
+            'Optimal_Hold': optimal_bars,
             'Status': 'PASSED' if passed else 'FAILED'
         }

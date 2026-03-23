@@ -70,7 +70,7 @@ def process_pending_hypotheses():
         # 2. Initialize Engine
         engine = LabEngine(
             data_file=processed_data_path,
-            start_date="2020-01-01",
+            start_date="2000-01-01",
             end_date="2026-02-27",
             timeframe=timeframe
         )
@@ -85,17 +85,24 @@ def process_pending_hypotheses():
         hypothesis = GenericJSONHypothesis(config=config)
         engine.run_hypothesis(hypothesis)
 
-        # 5. Evaluate and Log
-        evaluator = SignalEvaluator(hypothesis)
+        # 5. Evaluate and Log (UPDATED: Passing engine.df)
+        evaluator = SignalEvaluator(hypothesis, engine.df)
         metrics = evaluator.calculate_metrics()
 
-        # 6. Tear Sheet
+        # 6. Tear Sheet (UPDATED: Minimalist Optimal Hold View)
         print("=========================================")
         print(f"  TEAR SHEET: {metrics.get('Hypothesis', filename)}")
         print("=========================================")
         print(f"  Frequency   : {metrics.get('Frequency', 0)}")
-        print(f"  Win Rate    : {metrics.get('Win_Rate_%', 0)}% ({metrics.get('Wins', 0)}W / {metrics.get('Losses', 0)}L)")
-        print(f"  T-Stat      : {metrics.get('T_Stat', 0.0)}")
+
+        if metrics.get('Status') == 'REVIEW (Low Sample Size)':
+            print("  Optimal Hold: N/A (Not enough data)")
+        else:
+            opt_hold = metrics.get('Optimal_Hold', 0)
+            best_t = metrics.get('T_Stat', 0.0)
+            best_wr = metrics.get('Win_Rate_%', 0)
+            print(f"  Optimal Hold: {opt_hold} Bars (T-Stat: {best_t} | Win Rate: {best_wr}%)")
+            
         print(f"  Status      : {metrics.get('Status', 'ERROR')}")
         print("=========================================")
 
