@@ -26,13 +26,25 @@ class SignalEvaluator:
         std_dev = np.sqrt(e_x2 - (ev_r ** 2)) if (e_x2 - (ev_r ** 2)) > 0 else 1e-8
         t_stat = (ev_r / std_dev) * np.sqrt(freq)
 
+        # Existing calculations...
+        losses = freq - wins
+        
+        # --- [Formula 1] Profit Factor ---
+        # We use max(losses, 1) to avoid division by zero errors
+        profit_factor = (wins * 2.0) / (max(losses, 1) * 1.0)
+        
+        # --- [Formula 2] SQN (Mathematically similar to T-Stat) ---
+        sqn = (ev_r / std_dev) * np.sqrt(freq)
+
         return {
             'Hypothesis': self.hypothesis_name,
             'Frequency': freq,
             'Wins': wins,
-            'Losses': freq - wins,
+            'Losses': losses,
             'Win_Rate_%': round(win_rate * 100, 2),
+            'Profit_Factor': round(profit_factor, 2), 
             'Expectancy_R': round(ev_r, 4),
+            'SQN': round(sqn, 2),                     
             'T_Stat': round(t_stat, 2),
             'Status': 'PASSED' if (t_stat >= 2.0 and ev_r > 0) else 'FAILED'
         }

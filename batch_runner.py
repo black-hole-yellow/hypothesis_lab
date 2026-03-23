@@ -49,7 +49,7 @@ def process_pending_hypotheses():
 
         engine = LabEngine(
             data_file=processed_data_path,
-            start_date="2015-01-01",
+            start_date="2000-01-01",
             end_date="2026-02-27",
             timeframe=timeframe
         )
@@ -96,22 +96,29 @@ def process_pending_hypotheses():
         os.makedirs("output", exist_ok=True)
         safe_name = hypothesis.name.replace('/', '_').replace('\\', '_')
         pd.DataFrame(hypothesis.daily_logs).to_csv(f"output/{safe_name}_audit_log.csv", index=False)
-        # ==========================================================
-
-        print("=========================================")
-        print(f"  TEAR SHEET: {metrics['Hypothesis']}")
-        print("=========================================")
-        print(f"  Frequency          : {metrics['Frequency']}")
-        print(f"  Win Rate (1:2 RR)  : {metrics.get('Win_Rate_%', 0)}% ({metrics.get('Wins', 0)}W / {metrics.get('Losses', 0)}L)")
-        print(f"  Expectancy (R)     : {metrics.get('Expectancy_R', 0)}")
-        print(f"  T-Stat             : {metrics.get('T_Stat', 0)}")
-        print("=========================================")
         
-        if metrics['Status'] == 'PASSED':
+        # Fallbacks for safety if evaluator doesn't pass these yet
+        profit_factor = metrics.get('Profit_Factor', 0)
+        sqn = metrics.get('SQN', 0)
+        
+        print("=========================================================")
+        print(f" 📊 STRATEGY TEAR SHEET: {metrics['Hypothesis']}")
+        print("=========================================================")
+        print(f"  Sample Size (N)   : {metrics['Frequency']}")
+        print(f"  Expectancy (R)    : {metrics['Expectancy_R']} R")
+        print(f"  Profit Factor     : {metrics['Profit_Factor']}")
+        print(f"  SQN (Consistency) : {metrics['SQN']}")
+        print("=========================================================")
+        
+        # Stricter Promotion Criteria
+        if metrics['Status'] == 'PASSED' and metrics['Frequency'] >= 10:
             print("✅ PASSED: Promoted to PRODUCTION.")
             shutil.move(file_path, os.path.join(PRODUCTION_DIR, filename))
+        elif metrics['Status'] == 'PASSED' and metrics['Frequency'] < 10:
+            print("⚠️ INCONCLUSIVE: Positive edge, but Sample Size < 10. Moved to REVIEW.")
+            shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
         else:
-            print("❌ FAILED: Moved to REVIEW.")
+            print("❌ FAILED: Negative Edge. Moved to REVIEW.")
             shutil.move(file_path, os.path.join(REVIEW_DIR, filename))
 
 if __name__ == "__main__":

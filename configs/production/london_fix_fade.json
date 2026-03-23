@@ -36,11 +36,11 @@
       ]
     },
     "execution_rules": {
-      "mode": "risk_reward",
-      "risk_reward_ratio": 2.0,
-      "sl_atr_multiplier": 1.0,
+      "mode": "time_based",
+      "max_hold_bars": 4,
+      "exit_hour_ua": null,
       "max_trades_per_day": 1,
-      "allow_resweep": true
+      "allow_resweep": false
     }
   }
 }
