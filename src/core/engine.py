@@ -163,6 +163,11 @@ class LabEngine:
             for trade in active_trades:
                 if trade.get('Status') != 'Active': continue
                 
+                # FIX: Strict Bar Advancement. Wait until the next candle before evaluating exits.
+                if trade.get('Entry_Time') == index:
+                    still_active.append(trade)
+                    continue
+                
                 direction = str(trade.get('Direction', '')).capitalize()
                 
                 if mode == 'time_based':
@@ -236,6 +241,7 @@ class LabEngine:
                 
                 if mode == 'time_based':
                     new_trade.update({
+                        'Entry_Time': index,
                         'Entry_Price': entry_price,
                         'SL_Price': 0, 
                         'TP_Price': 0, 
@@ -259,6 +265,7 @@ class LabEngine:
                     tp_price = (entry_price + (target_rr * risk)) if direction == 'Long' else (entry_price - (target_rr * risk))
                     
                     new_trade.update({
+                        'Entry_Time': index,
                         'Entry_Price': entry_price, 
                         'SL_Price': sl_price, 
                         'TP_Price': tp_price, 

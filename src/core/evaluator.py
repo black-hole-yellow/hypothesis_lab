@@ -30,6 +30,7 @@ class SignalEvaluator:
             'Hypothesis': self.hypothesis_name,
             'Frequency': freq,
             'Win_Rate_%': round(win_rate * 100, 2),
+            'Expectancy_R': round(ev_r, 4),
             'T_Stat': round(t_stat, 2),
             'Status': 'PASSED' if (t_stat >= 2.0 and ev_r > 0) else 'FAILED'
         }

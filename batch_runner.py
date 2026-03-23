@@ -117,8 +117,8 @@ def process_pending_hypotheses():
                     break
 
         # Stricter Promotion Criteria
-        if is_macro and metrics.get('Win_Rate_%', 0) > 52.0 and metrics.get('Frequency', 0) > 0:
-            print("✅ MACRO PASSED: Win Rate > 52%. Promoted to PRODUCTION.")
+        if is_macro and metrics.get('Win_Rate_%', 0) > 52.0 and metrics.get('Expectancy_R', 0) > 0 and metrics.get('Frequency', 0) > 0:
+            print("✅ MACRO PASSED: Win Rate > 52% & Positive Edge. Promoted to PRODUCTION.")
             shutil.move(file_path, os.path.join(PRODUCTION_DIR, filename))
         elif metrics['Status'] == 'PASSED' and metrics['Frequency'] >= 10:
             print("✅ PASSED: Promoted to PRODUCTION.")

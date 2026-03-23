@@ -4,6 +4,7 @@ import pandas as pd
 PIP = 0.0001
 
 def add_judas_swing_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    if 'Judas_Short' in df.columns: return df
     df = df.copy()
     df['Judas_Short'] = 0
     df['Judas_Short_SL'] = np.nan
@@ -45,6 +46,7 @@ def add_judas_swing_context(df: pd.DataFrame, events: list = None) -> pd.DataFra
 
 def add_asian_sweep_context(df: pd.DataFrame, events=None, max_dist_pips: int = 15) -> pd.DataFrame:
     """Calculates Asian Session Extremes and detects sweeps into 4H FVGs."""
+    if 'Swept_AL_Into_FVG' in df.columns: return df
     tolerance = max_dist_pips * PIP
     
     # 1. Считаем Азию только если ее еще нет (Один раз!)
@@ -83,6 +85,7 @@ def add_asian_sweep_context(df: pd.DataFrame, events=None, max_dist_pips: int = 
     return df
 
 def add_asian_box_breakout_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    if 'Asian_Box_Long' in df.columns: return df
     df = df.copy()
     df['Asian_Box_Long'] = 0
     df['Asian_Box_Short'] = 0
@@ -114,6 +117,7 @@ def add_asian_box_breakout_context(df: pd.DataFrame, events: list = None) -> pd.
     return df
 
 def add_tokyo_trap_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    if 'Tokyo_Trap_Short' in df.columns: return df
     df = df.copy()
     df['Tokyo_Trap_Short'] = 0
     df['Tokyo_Trap_Long'] = 0
@@ -136,6 +140,7 @@ def add_tokyo_trap_context(df: pd.DataFrame, events: list = None) -> pd.DataFram
     return df
 
 def add_london_true_trend_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    if 'LO_True_Trend_Long' in df.columns: return df
     df = df.copy()
     df['LO_True_Trend_Long'] = 0
     df['LO_True_Trend_Short'] = 0
@@ -157,6 +162,7 @@ def add_london_true_trend_context(df: pd.DataFrame, events: list = None) -> pd.D
     return df
 
 def add_london_fix_fade_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    if 'Fix_Fade_Short' in df.columns: return df
     df = df.copy()
     df['Fix_Fade_Short'] = 0
     df['Fix_Fade_Short_SL'] = np.nan
@@ -191,6 +197,7 @@ def add_london_fix_fade_context(df: pd.DataFrame, events: list = None) -> pd.Dat
     return df
 
 def add_london_pdh_pdl_sweep_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    if 'First_LDN_PDL_Long' in df.columns: return df
     is_london_eval = (df['UA_Hour'] >= 10) & (df['UA_Hour'] <= 14)
     
     fractal_low = (df.get('Confirmed_Fractal_Low', pd.Series(0, index=df.index)) == 1)
@@ -216,6 +223,7 @@ def add_london_pdh_pdl_sweep_context(df: pd.DataFrame, events: list = None) -> p
     return df
 
 def add_london_counter_fractal_context(df: pd.DataFrame,events: list = None) -> pd.DataFrame:
+    if 'First_LDN_Counter_Low' in df.columns: return df
     is_london_eval = (df['UA_Hour'] >= 10) & (df['UA_Hour'] <= 14)
     
     bull_trend = (df.get('1D_Swing_Bullish', pd.Series(0, index=df.index)) == 1)
@@ -237,6 +245,7 @@ def add_london_counter_fractal_context(df: pd.DataFrame,events: list = None) -> 
     return df
 
 def add_ny_expansion_context(df: pd.DataFrame,events: list = None) -> pd.DataFrame:
+    if 'NY_Opened_In_Asia_Range' in df.columns: return df
     if 'Asia_High' not in df.columns:
         df['Date_Key_Tmp'] = df.index.date
         is_asia = (df['UA_Hour'] >= 0) & (df['UA_Hour'] <= 8)
@@ -271,6 +280,7 @@ def add_ny_expansion_context(df: pd.DataFrame,events: list = None) -> pd.DataFra
     return df
 
 def add_ny_sr_touch_context(df: pd.DataFrame, events: list = None, tolerance_pips: int = 15) -> pd.DataFrame:
+    if 'NY_First_Touch_Res' in df.columns: return df
     PIP = 0.0001
     tol = tolerance_pips * PIP
     
@@ -296,6 +306,7 @@ def add_ny_sr_touch_context(df: pd.DataFrame, events: list = None, tolerance_pip
     return df
 
 def add_asian_sr_alignment_context(df: pd.DataFrame, max_dist_pips: int = 15) -> pd.DataFrame:
+    if 'First_False_Break_Res' in df.columns: return df
     PIP = 0.0001
     dist = max_dist_pips * PIP
 
@@ -327,6 +338,7 @@ def add_asian_sr_alignment_context(df: pd.DataFrame, max_dist_pips: int = 15) ->
     return df
 
 def add_ny_continuation_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    if 'NY_Cont_Long' in df.columns: return df
     df = df.copy()
     df['NY_Cont_Long'] = 0
     df['NY_Cont_Short'] = 0
@@ -358,6 +370,7 @@ def add_ny_continuation_context(df: pd.DataFrame, events: list = None) -> pd.Dat
     return df
 
 def add_ny_news_sweep_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    if 'NY_Sweep_Short' in df.columns: return df
     df = df.copy()
     df['NY_Sweep_Short'] = 0
     df['NY_Sweep_Short_SL'] = np.nan
@@ -408,6 +421,7 @@ def add_ny_news_sweep_context(df: pd.DataFrame, events: list = None) -> pd.DataF
     return df
 
 def add_friday_reversal_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    if 'Friday_Reversal_Short' in df.columns: return df
     df = df.copy()
     df['Friday_Reversal_Short'] = 0
     df['Friday_Reversal_Long'] = 0
@@ -432,6 +446,7 @@ def add_friday_reversal_context(df: pd.DataFrame, events: list = None) -> pd.Dat
     return df
 
 def add_weekend_gap_context(df: pd.DataFrame,events: list = None) -> pd.DataFrame:
+    if 'Gap_Up_Fade_Short' in df.columns: return df
     time_diff = df.index.to_series().diff()
     is_week_open = time_diff > pd.Timedelta(hours=24)
     gap_pips = (df['Open'] - df['Close'].shift(1)) * 10000
@@ -442,6 +457,7 @@ def add_weekend_gap_context(df: pd.DataFrame,events: list = None) -> pd.DataFram
     return df
 
 def add_monday_gap_reversion_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    if 'Monday_Reversion_Short' in df.columns: return df
     df = df.copy()
     df['Monday_Reversion_Short'] = 0
     df['Monday_Reversion_Long'] = 0
@@ -462,6 +478,7 @@ def add_monday_gap_reversion_context(df: pd.DataFrame, events: list = None) -> p
     return df
 
 def add_turnaround_tuesday_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    if 'Tuesday_Resumption_Long' in df.columns: return df
     df = df.copy()
     df['Tuesday_Resumption_Long'] = 0
     df['Tuesday_Resumption_Short'] = 0
@@ -484,6 +501,7 @@ def add_turnaround_tuesday_context(df: pd.DataFrame, events: list = None) -> pd.
     return df
 
 def add_wednesday_fakeout_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    if 'Wed_Fakeout_Long' in df.columns: return df
     df = df.copy()
     df['Wed_Fakeout_Long'] = 0
     df['Wed_Fakeout_Short'] = 0
@@ -510,6 +528,7 @@ def add_wednesday_fakeout_context(df: pd.DataFrame, events: list = None) -> pd.D
     return df
 
 def add_thursday_expansion_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    if 'Thursday_Trend_Long' in df.columns: return df
     df = df.copy()
     df['Thursday_Trend_Long'] = 0
     df['Thursday_Trend_Short'] = 0
@@ -535,6 +554,7 @@ def add_thursday_expansion_context(df: pd.DataFrame, events: list = None) -> pd.
     return df
 
 def add_pure_algo_vol_crush_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    if 'Algo_Vol_Crush_Short' in df.columns: return df
     df = df.copy()
     
     df['TR_Local'] = np.maximum(

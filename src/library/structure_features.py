@@ -9,6 +9,7 @@ def add_previous_boundaries(df: pd.DataFrame, events: list = None,) -> pd.DataFr
     Static session-based boundaries for PDH/PDL and PWH/PWL.
     Ensures levels update ONLY when a new session begins.
     """
+    if 'PDH' in df.columns: return df
     # 1. DAILY BOUNDARIES
     # Group by the date part of the index
     daily_stats = df.groupby(df.index.date).agg({'High': 'max', 'Low': 'min'})
@@ -47,6 +48,7 @@ def calculate_fvgs(df: pd.DataFrame, events: list = None,) -> pd.DataFrame:
     Identifies ALL FVGs (Bullish/Bearish) and calculates their Middle Line.
     (Closure tracking removed per user request for performance and scope).
     """
+    if 'FVG_Type' in df.columns: return df
     df['FVG_Type'] = None
     df['FVG_Top'] = np.nan
     df['FVG_Bottom'] = np.nan
@@ -107,6 +109,7 @@ def calculate_multi_tf_fvgs(df: pd.DataFrame, events: list = None,) -> pd.DataFr
     Calculates FVGs across 1h, 4h, and 1D timeframes and maps them 
     back to the base 1-hour dataframe.
     """
+    if 'FVG_4h_Type' in df.columns: return df
     # 1. Base Timeframe (1h) FVGs
     df_1h = get_htf_fvgs(df, '1h')
     df = df.join(df_1h)
@@ -254,6 +257,7 @@ def add_fvg_order_flow_context(df: pd.DataFrame, events: list = None,) -> pd.Dat
     Identifies if price is inside a 4H FVG and if a 1H Order Flow Flip occurred.
     Requires calculate_multi_tf_fvgs and add_volume_zscore to be run first.
     """
+    if 'In_4h_Bull_FVG' in df.columns: return df
     
     # --- 1. FVG Zone Detection ---
     # Bullish FVG: Price dips into the zone, but hasn't closed below it
@@ -293,6 +297,7 @@ def add_weekly_swing_context(df: pd.DataFrame, events: list = None,) -> pd.DataF
     Calculates the Weekly Trend (Swing) using a 168-hour lookback.
     Returns 1 for Bullish (Price > SMA), -1 for Bearish.
     """
+    if 'Weekly_Swing' in df.columns: return df
     # 168 hours = 1 Week of 1H data
     lookback = 168
     df['Weekly_SMA'] = df['Close'].rolling(window=lookback).mean()
@@ -309,6 +314,7 @@ def add_1w_swing_context(df: pd.DataFrame, events: list = None,) -> pd.DataFrame
     Determines the 1W HTF Swing direction based on the last broken weekly extreme.
     Guaranteed zero lookahead bias and stateful tracking.
     """
+    if '1W_Swing_Bullish' in df.columns: return df
     # 1. Define the 1-Week (120 trading hours) rolling extremes
     df['1W_High'] = df['High'].rolling(window=120).max().shift(1)
     df['1W_Low'] = df['Low'].rolling(window=120).min().shift(1)
@@ -339,6 +345,7 @@ def add_1d_swing_context(df: pd.DataFrame, events: list = None,) -> pd.DataFrame
     Determines the 1D Swing direction based on the last broken daily extreme.
     Tracks structural breaks over a rolling 24-hour period.
     """
+    if '1D_Swing_Bullish' in df.columns: return df
     
     # 1. 1-Day (24 hours) rolling extremes
     df['1D_High'] = df['High'].rolling(window=24).max().shift(1)
@@ -367,6 +374,7 @@ def add_weekly_floor_context(df: pd.DataFrame, events: list = None,) -> pd.DataF
     Detects if a London Fractal aligns with the Weekly Swing direction.
     Uses an expanded time window (09:00 - 14:00) to account for n=2 confirmation lag.
     """
+    if 'First_LDN_Weekly_Bull' in df.columns: return df
     # 1. Time Window
     is_london_eval = (df['UA_Hour'] >= 10) & (df['UA_Hour'] <= 14)
     
@@ -401,6 +409,7 @@ def add_fvg_sr_confluence_context(df: pd.DataFrame,events: list = None, max_dist
     Detects when a 1D FVG forms immediately adjacent to a Major S&R level (Confluence).
     Triggers on the strictly FIRST touch of this confluence zone per day.
     """
+    if 'First_Touch_Res_Zone' in df.columns: return df
     PIP = 0.0001
     dist = max_dist_pips * PIP
 
@@ -440,6 +449,7 @@ def add_1w_level_rejection_context(df: pd.DataFrame, events: list = None, max_di
     and prints a confirmed fractal, signaling macro trend continuation.
     Requires add_previous_boundaries and add_confirmed_fractals.
     """
+    if 'First_1W_Rej_Long' in df.columns: return df
     PIP = 0.0001
     tol = max_dist_pips * PIP
     
@@ -589,6 +599,7 @@ def add_htf_trend_probability(df: pd.DataFrame, events: list = None, htf: str = 
     return df
 
 def add_structure_flip_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    if '1h_Bullish_Flip' in df.columns: return df
     df = df.copy()
     
     # Detect 3-bar swings
@@ -608,6 +619,7 @@ def add_structure_flip_context(df: pd.DataFrame, events: list = None) -> pd.Data
     return df
 
 def add_asia_fvg_protection_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    if 'LDN_Protected_AL_Long' in df.columns: return df
     df = df.copy()
     """
     Определяет, находится ли Азиатский Хай/Лоу внутри 4H FVG.
@@ -649,6 +661,7 @@ def add_asia_fvg_protection_context(df: pd.DataFrame, events: list = None) -> pd
     return df
 
 def add_asian_sweep_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
+    if 'Swept_AL_Into_FVG' in df.columns: return df
     df = df.copy()
     
     # 1. Ensure Asia boundaries exist

@@ -3,6 +3,7 @@
     "hypothesis_id": "H_016_LDN_PDH_PDL_SWEEP",
     "name": "London PDH-PDL Sweep Reversal",
     "author": "Quant_Lab_Alpha",
+    "category": "intraday",
     "rationale": "Tests if London sweeping the Previous Day High or Low and printing a confirmed fractal acts as the high/low of the session."
   },
   "universe": {
