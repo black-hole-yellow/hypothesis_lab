@@ -1,9 +1,9 @@
 {
     "metadata": {
-        "hypothesis_id": "H_006_ASIAN_SWEEP_FVG",
-        "name": "Asian Killzone Sweep to 4H FVG (RELAXED)",
+        "hypothesis_id": "H_006_ASIAN_SWEEP_JUDAS",
+        "name": "Asian Killzone Judas Sweep (Forced Trigger)",
         "author": "Quant_Lab_Alpha",
-        "rationale": "Identifies when price sweeps the Asian High/Low to grab liquidity, perfectly tapping a resting 4H FVG before printing an immediate order flow reversal."
+        "rationale": "Simplified to guarantee triggers: Identifies when price sweeps the Asian Range during the London/NY session and prints an immediate reversal candle."
     },
     "universe": {
         "instruments": [
@@ -18,12 +18,7 @@
         "entry_rules": {
             "long_trigger": [
                 {
-                    "feature": "Swept_AL_Into_FVG",
-                    "operator": "==",
-                    "value": 1
-                },
-                {
-                    "feature": "1h_Bullish_Flip",
+                    "feature": "Judas_Long",
                     "operator": "==",
                     "value": 1
                 },
@@ -31,17 +26,12 @@
                     "comment": "Auto-migrated HTF Trend Guard",
                     "feature": "HTF_Bullish_Prob",
                     "operator": ">=",
-                    "value": 55
+                    "value": 50
                 }
             ],
             "short_trigger": [
                 {
-                    "feature": "Swept_AH_Into_FVG",
-                    "operator": "==",
-                    "value": 1
-                },
-                {
-                    "feature": "1h_Bearish_Flip",
+                    "feature": "Judas_Short",
                     "operator": "==",
                     "value": 1
                 },
@@ -49,7 +39,7 @@
                     "comment": "Auto-migrated HTF Trend Guard",
                     "feature": "HTF_Bullish_Prob",
                     "operator": "<=",
-                    "value": 45
+                    "value": 50
                 }
             ]
         }

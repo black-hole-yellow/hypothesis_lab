@@ -1,8 +1,0 @@
-Datetime_Kyiv,Direction,Entry_Price,CPI_Momentum_Long,Outcome,Hold_Bars,CPI_Momentum_Short
-2021-08-18 13:00:00,Long,1.37474,1.0,Win,8,
-2022-10-19 13:00:00,Short,1.12821,,Win,8,1.0
-2023-03-15 13:00:00,Short,1.2069,,Loss,8,1.0
-2023-05-24 13:00:00,Short,1.23853,,Win,8,1.0
-2023-06-21 13:00:00,Short,1.27002,,Loss,8,1.0
-2023-12-20 13:00:00,Short,1.26505,,Win,8,1.0
-2025-12-17 13:00:00,Long,1.33272,1.0,Win,8,

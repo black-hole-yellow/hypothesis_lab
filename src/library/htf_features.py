@@ -67,7 +67,7 @@ def calculate_multi_tf_fvgs(df: pd.DataFrame) -> pd.DataFrame:
     df = df.join(df_1d_mapped)
     return df
 
-@provides('Swept_AL_Into_FVG', 'Swept_AH_Into_FVG')
+@provides('Swept_AL_Into_FVG', 'Swept_AH_Into_FVG', 'Asia_Low_Swept_Persistent', 'Asia_High_Swept_Persistent')
 def add_asian_sweep_context(df: pd.DataFrame, max_dist_pips: int = 15) -> pd.DataFrame:
     # --- SELF-HEALING: Ensure FVG data exists ---
     if 'FVG_4h_Type' not in df.columns:
@@ -87,6 +87,10 @@ def add_asian_sweep_context(df: pd.DataFrame, max_dist_pips: int = 15) -> pd.Dat
     df['Swept_AL_Into_FVG'] = df['Bull_FVG_Below_AL'] & (df['Low'] < df['Asia_Low']) & (df['Low'] <= df['FVG_4h_Top'])
     df['Swept_AH_Into_FVG'] = df['Bear_FVG_Above_AH'] & (df['High'] > df['Asia_High']) & (df['High'] >= df['FVG_4h_Bottom'])
     
+    # --- ADDED: Persistent Memory Flags ---
+    df['Asia_Low_Swept_Persistent'] = df.groupby(df.index.date)['Swept_AL_Into_FVG'].cummax().astype(int)
+    df['Asia_High_Swept_Persistent'] = df.groupby(df.index.date)['Swept_AH_Into_FVG'].cummax().astype(int)
+    
     df.drop(columns=['Date_Key'], inplace=True)
     df['Swept_AL_Into_FVG'] = df['Swept_AL_Into_FVG'].fillna(False).astype(int)
     df['Swept_AH_Into_FVG'] = df['Swept_AH_Into_FVG'].fillna(False).astype(int)
@@ -94,6 +98,12 @@ def add_asian_sweep_context(df: pd.DataFrame, max_dist_pips: int = 15) -> pd.Dat
 
 @provides('First_LDN_PDL_Long', 'First_LDN_PDH_Short')
 def add_london_pdh_pdl_sweep_context(df: pd.DataFrame) -> pd.DataFrame:
+    if 'PDL' not in df.columns: df = add_previous_boundaries(df)
+    if 'Confirmed_Fractal_Low' not in df.columns:
+        from src.library.features import add_williams_fractals, add_confirmed_fractals
+        if 'Fractal_Low' not in df.columns: df = add_williams_fractals(df, timeframe='1h')
+        df = add_confirmed_fractals(df)
+
     is_london_eval = (df['UA_Hour'] >= 10) & (df['UA_Hour'] <= 14)
     fractal_low = (df['Confirmed_Fractal_Low'].fillna(0) == 1)
     fractal_high = (df['Confirmed_Fractal_High'].fillna(0) == 1)
@@ -173,6 +183,8 @@ def add_ny_sr_touch_context(df: pd.DataFrame, tolerance_pips: int = 10) -> pd.Da
 
 @provides('NY_Open_Price', 'NY_Opened_In_Asia_Range', 'NY_Sweep_Asia_Low', 'NY_Sweep_Asia_High')
 def add_ny_expansion_context(df: pd.DataFrame) -> pd.DataFrame:
+    if 'Asia_High' not in df.columns: df = add_asian_sweep_context(df)
+        
     df['NY_Open_Price'] = df.where(df['UA_Hour'] == 15)['Open']
     df['NY_Open_Price'] = df.groupby(df.index.date)['NY_Open_Price'].ffill()
 
@@ -227,6 +239,12 @@ def add_1d_swing_context(df: pd.DataFrame) -> pd.DataFrame:
 
 @provides('First_LDN_Weekly_Bull', 'First_LDN_Weekly_Bear')
 def add_weekly_floor_context(df: pd.DataFrame) -> pd.DataFrame:
+    if '1W_Swing_Bullish' not in df.columns: df = add_1w_swing_context(df)
+    if 'Confirmed_Fractal_Low' not in df.columns:
+        from src.library.features import add_williams_fractals, add_confirmed_fractals
+        if 'Fractal_Low' not in df.columns: df = add_williams_fractals(df, timeframe='1h')
+        df = add_confirmed_fractals(df)
+
     is_london_eval = (df['UA_Hour'] >= 10) & (df['UA_Hour'] <= 14)
     bull_swing = df['1W_Swing_Bullish'].fillna(0) == 1
     bear_swing = df['1W_Swing_Bearish'].fillna(0) == 1
@@ -247,6 +265,12 @@ def add_weekly_floor_context(df: pd.DataFrame) -> pd.DataFrame:
 
 @provides('First_LDN_Counter_Low', 'First_LDN_Counter_High')
 def add_london_counter_fractal_context(df: pd.DataFrame) -> pd.DataFrame:
+    if '1D_Swing_Bullish' not in df.columns: df = add_1d_swing_context(df)
+    if 'Confirmed_Fractal_Low' not in df.columns:
+        from src.library.features import add_williams_fractals, add_confirmed_fractals
+        if 'Fractal_Low' not in df.columns: df = add_williams_fractals(df, timeframe='1h')
+        df = add_confirmed_fractals(df)
+
     is_london_eval = (df['UA_Hour'] >= 10) & (df['UA_Hour'] <= 14)
     bull_trend = (df['1D_Swing_Bullish'] == 1)
     bear_trend = (df['1D_Swing_Bearish'] == 1)
@@ -284,6 +308,9 @@ def add_fvg_sr_confluence_context(df: pd.DataFrame, max_dist_pips: int = 30) -> 
 
 @provides('Asia_Res_Aligned', 'Asia_Sup_Aligned', 'First_False_Break_Res', 'First_False_Break_Sup')
 def add_asian_sr_alignment_context(df: pd.DataFrame, max_dist_pips: int = 15) -> pd.DataFrame:
+    if 'Asia_High' not in df.columns: df = add_asian_sweep_context(df)
+    if 'Major_Resistance' not in df.columns: df = add_ny_sr_touch_context(df)
+
     dist = max_dist_pips * PIP
     df['Asia_Res_Aligned'] = (abs(df['Asia_High'] - df['Major_Resistance']) <= dist)
     df['Asia_Sup_Aligned'] = (abs(df['Asia_Low'] - df['Major_Support']) <= dist)
@@ -303,6 +330,9 @@ def add_asian_sr_alignment_context(df: pd.DataFrame, max_dist_pips: int = 15) ->
 
 @provides('LDN_Protected_AL_Long', 'LDN_Protected_AH_Short')
 def add_asia_fvg_protection_context(df: pd.DataFrame) -> pd.DataFrame:
+    if 'FVG_4h_Type' not in df.columns: df = calculate_multi_tf_fvgs(df)
+    if 'Asia_Low' not in df.columns: df = add_asian_sweep_context(df)
+
     asia_low_protected = (df['FVG_4h_Type'] == 'BULL') & (df['Asia_Low'] <= df['FVG_4h_Top']) & (df['Asia_Low'] >= df['FVG_4h_Bottom'])
     asia_high_protected = (df['FVG_4h_Type'] == 'BEAR') & (df['Asia_High'] <= df['FVG_4h_Top']) & (df['Asia_High'] >= df['FVG_4h_Bottom'])
 
@@ -313,6 +343,12 @@ def add_asia_fvg_protection_context(df: pd.DataFrame) -> pd.DataFrame:
 
 @provides('First_1W_Rej_Long', 'First_1W_Rej_Short')
 def add_1w_level_rejection_context(df: pd.DataFrame, max_dist_pips: int = 20) -> pd.DataFrame:
+    if 'PWL' not in df.columns: df = add_previous_boundaries(df)
+    if 'Confirmed_Fractal_Low' not in df.columns:
+        from src.library.features import add_williams_fractals, add_confirmed_fractals
+        if 'Fractal_Low' not in df.columns: df = add_williams_fractals(df, timeframe='1h')
+        df = add_confirmed_fractals(df)
+
     tol = max_dist_pips * PIP
     fractal_low = (df['Confirmed_Fractal_Low'].fillna(0) == 1)
     fractal_high = (df['Confirmed_Fractal_High'].fillna(0) == 1)
@@ -739,10 +775,13 @@ def add_turnaround_tuesday_context(df: pd.DataFrame, events: list = None) -> pd.
 
 @provides('Wed_Fakeout_Long', 'Wed_Fakeout_Short')
 def add_wednesday_fakeout_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
-    daily_hl = df.groupby(df.index.date).agg({'High': 'max', 'Low': 'min'})
+    df['Date_Key'] = df.index.date
+    daily_hl = df.groupby('Date_Key').agg({'High': 'max', 'Low': 'min'})
     prev_day_hl = daily_hl.shift(1)
-    prev_day_high = df.index.date.map(lambda d: prev_day_hl.loc[d, 'High'] if d in prev_day_hl.index else np.nan)
-    prev_day_low = df.index.date.map(lambda d: prev_day_hl.loc[d, 'Low'] if d in prev_day_hl.index else np.nan)
+    
+    # FIX: NumPy arrays don't have .map(), Series do.
+    prev_day_high = df['Date_Key'].map(prev_day_hl['High'])
+    prev_day_low = df['Date_Key'].map(prev_day_hl['Low'])
     
     is_wednesday = df.index.dayofweek == 2
     sweep_high = (df['High'] > prev_day_high) & (df['Close'] < prev_day_high) & (df['Close'] < df['Open'])
@@ -750,6 +789,7 @@ def add_wednesday_fakeout_context(df: pd.DataFrame, events: list = None) -> pd.D
     
     df['Wed_Fakeout_Short'] = (is_wednesday & sweep_high).astype(int)
     df['Wed_Fakeout_Long'] = (is_wednesday & sweep_low).astype(int)
+    df.drop(columns=['Date_Key'], inplace=True, errors='ignore')
     return df
 
 @provides('Thursday_Trend_Long', 'Thursday_Trend_Short')
@@ -829,12 +869,14 @@ def add_london_true_trend_context(df: pd.DataFrame, events: list = None) -> pd.D
 
 @provides('Judas_Short', 'Judas_Long')
 def add_judas_swing_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
-    day_key = df.index.normalize() 
+    df['Day_Key'] = df.index.normalize() 
     asia_mask = (df.index.hour >= 0) & (df.index.hour < 7)
-    daily_stats = df[asia_mask].groupby(day_key).agg({'High': 'max', 'Low': 'min'})
     
-    asia_high_day = day_key.map(daily_stats['High'])
-    asia_low_day = day_key.map(daily_stats['Low'])
+    # FIX: Group by the column, not the raw array
+    daily_stats = df[asia_mask].groupby('Day_Key').agg({'High': 'max', 'Low': 'min'})
+    
+    asia_high_day = df['Day_Key'].map(daily_stats['High'])
+    asia_low_day = df['Day_Key'].map(daily_stats['Low'])
     
     global_time_filter = (df['UA_Hour'] >= 10) & (df['UA_Hour'] <= 18) & (df.index.dayofweek != 4) & (df.index.month != 12)
     
@@ -846,37 +888,41 @@ def add_judas_swing_context(df: pd.DataFrame, events: list = None) -> pd.DataFra
     
     df['Judas_Short'] = (global_time_filter & sweep_high).astype(int)
     df['Judas_Long'] = (global_time_filter & sweep_low).astype(int)
+    df.drop(columns=['Day_Key'], inplace=True, errors='ignore')
     return df
 
 @provides('NY_Cont_Long', 'NY_Cont_Short')
 def add_ny_continuation_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
     daily_range = df['High'].rolling(24).max() - df['Low'].rolling(24).min()
     atr_14d = daily_range.rolling(336).mean()
-    day_key = df.index.normalize()
+    df['Day_Key'] = df.index.normalize()
 
-    open_10 = df[df['UA_Hour'] == 10].groupby(day_key)['Open'].first()
-    close_15 = df[df['UA_Hour'] == 15].groupby(day_key)['Close'].last()
+    # FIX: Group by the column
+    open_10 = df[df['UA_Hour'] == 10].groupby('Day_Key')['Open'].first()
+    close_15 = df[df['UA_Hour'] == 15].groupby('Day_Key')['Close'].last()
 
-    ldn_vector = day_key.map(close_15) - day_key.map(open_10)
+    ldn_vector = df['Day_Key'].map(close_15) - df['Day_Key'].map(open_10)
     strong_trend = ldn_vector.abs() > (0.5 * atr_14d)
     is_entry_time = (df['UA_Hour'] == 16)
 
     df['NY_Cont_Long'] = (is_entry_time & strong_trend & (ldn_vector > 0)).astype(int)
     df['NY_Cont_Short'] = (is_entry_time & strong_trend & (ldn_vector < 0)).astype(int)
+    df.drop(columns=['Day_Key'], inplace=True, errors='ignore')
     return df
 
 @provides('NY_Sweep_Short', 'NY_Sweep_Long')
 def add_ny_news_sweep_context(df: pd.DataFrame, events: list = None) -> pd.DataFrame:
-    day_key = df.index.normalize()
+    df['Day_Key'] = df.index.normalize()
+    
     asia_mask = (df.index.hour >= 0) & (df.index.hour < 7)
-    asia_stats = df[asia_mask].groupby(day_key).agg({'High': 'max', 'Low': 'min'})
-    asia_high = day_key.map(asia_stats['High'])
-    asia_low = day_key.map(asia_stats['Low'])
+    asia_stats = df[asia_mask].groupby('Day_Key').agg({'High': 'max', 'Low': 'min'})
+    asia_high = df['Day_Key'].map(asia_stats['High'])
+    asia_low = df['Day_Key'].map(asia_stats['Low'])
 
     ldn_mask = (df['UA_Hour'] >= 10) & (df['UA_Hour'] < 15)
-    ldn_stats = df[ldn_mask].groupby(day_key).agg({'High': 'max', 'Low': 'min'})
-    ldn_high = day_key.map(ldn_stats['High'])
-    ldn_low = day_key.map(ldn_stats['Low'])
+    ldn_stats = df[ldn_mask].groupby('Day_Key').agg({'High': 'max', 'Low': 'min'})
+    ldn_high = df['Day_Key'].map(ldn_stats['High'])
+    ldn_low = df['Day_Key'].map(ldn_stats['Low'])
 
     ldn_swept_asia_high = ldn_high > asia_high
     ldn_swept_asia_low = ldn_low < asia_low
@@ -891,6 +937,7 @@ def add_ny_news_sweep_context(df: pd.DataFrame, events: list = None) -> pd.DataF
 
     df['NY_Sweep_Short'] = (valid_time & sweep_high & (~ldn_swept_asia_high)).astype(int)
     df['NY_Sweep_Long'] = (valid_time & sweep_low & (~ldn_swept_asia_low)).astype(int)
+    df.drop(columns=['Day_Key'], inplace=True, errors='ignore')
     return df
 
 @provides('Fix_Fade_Short', 'Fix_Fade_Long')
